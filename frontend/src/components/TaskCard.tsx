@@ -15,11 +15,13 @@ import {
     EditOutlined,
     FieldTimeOutlined,
     UnorderedListOutlined,
+    UserOutlined,
 } from '@ant-design/icons';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import {
+    Colleague,
     MetaDraft,
     Task,
     TaskStatus,
@@ -49,6 +51,8 @@ interface TaskCardProps {
     onDeleteMeta: (id: string) => Promise<void>
     onReorderMeta: (taskId: string, orderedIds: string[]) => void
     readOnly?: boolean
+    members?: Colleague[]
+    onReassign?: (taskId: string, targetUserKode: string) => Promise<void>
 }
 
 export default function TaskCard({
@@ -61,6 +65,8 @@ export default function TaskCard({
     onDeleteMeta,
     onReorderMeta,
     readOnly = false,
+    members = [],
+    onReassign,
 }: TaskCardProps) {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [updating, setUpdating] = useState(false)
@@ -71,6 +77,8 @@ export default function TaskCard({
     const activeStatus = STATUS_OPTIONS.find((s) => s.value === task.status)
     const visibleMeta = showAllMeta ? task.meta : task.meta.slice(0, META_PREVIEW_COUNT)
     const hiddenMetaCount = task.meta.length - META_PREVIEW_COUNT
+
+    const assignee = members.find((m) => m.kodeku === task.userKode)
 
     const handleEditSubmit = async (id: string, input: UpdateTaskInput) => {
         setUpdating(true)
@@ -95,6 +103,15 @@ export default function TaskCard({
                         <Tag color={activeStatus?.color || 'default'} className="font-medium rounded-full px-2.5">
                             {activeStatus?.label || task.status}
                         </Tag>
+                        {assignee ? (
+                            <Tag icon={<UserOutlined />} color="blue" className="font-medium rounded-full px-2.5">
+                                {assignee.nama}
+                            </Tag>
+                        ) : task.userKode ? (
+                            <Tag icon={<UserOutlined />} color="cyan" className="font-medium rounded-full px-2.5">
+                                User #{task.userKode}
+                            </Tag>
+                        ) : null}
                         {readOnly && (
                             <Tag color="default" className="font-medium rounded-full px-2.5">
                                 Read-only
@@ -143,6 +160,21 @@ export default function TaskCard({
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap md:flex-nowrap !border-t md:!border-t-0 pt-4 md:pt-0 !border-slate-100 dark:!border-slate-800">
+                    {!readOnly && onReassign && members.length > 0 && (
+                        <Select
+                            placeholder="Reassign..."
+                            value={task.userKode || undefined}
+                            onChange={(targetKode) => onReassign(task.id, targetKode)}
+                            options={members.map((m) => ({
+                                label: `Assigned: ${m.nama}`,
+                                value: m.kodeku,
+                            }))}
+                            className="w-44"
+                            size="middle"
+                            popupClassName="dark:!bg-slate-900"
+                        />
+                    )}
+
                     {readOnly ? (
                         <Tag color={activeStatus?.color || 'default'} className="font-medium rounded-full px-3 py-1">
                             {activeStatus?.label || task.status}

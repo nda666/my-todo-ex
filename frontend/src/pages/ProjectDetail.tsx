@@ -33,17 +33,23 @@ import {
 
 import {
     AppstoreOutlined,
+    CalendarOutlined,
     CheckCircleOutlined,
     ClockCircleOutlined,
     CloseCircleOutlined,
     CrownFilled,
     DownloadOutlined,
     ExclamationCircleOutlined,
+    FileOutlined,
+    FilterOutlined,
+    HistoryOutlined,
     PauseCircleOutlined,
-    PlusOutlined,
     PlayCircleOutlined,
+    PlusOutlined,
     RedoOutlined,
+    SearchOutlined,
     TableOutlined,
+    UserOutlined,
 } from '@ant-design/icons';
 import {
     useApolloClient,
@@ -84,6 +90,7 @@ import {
     GET_PROJECT,
     GET_PROJECT_TASKS,
     INVITE_DIVISION,
+    REASSIGN_PROJECT_TASK,
     REMOVE_DIVISION,
     REMOVE_PROJECT_LEADER,
     REOPEN_PROJECT,
@@ -132,10 +139,15 @@ export default function ProjectDetail() {
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
     const [divisionMembers, setDivisionMembers] = useState<Record<number, Colleague[]>>({});
-    const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+    const [viewMode, setViewMode] = useState<'card' | 'table' | 'timeline' | 'activity' | 'files'>('card');
     const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
     const [inviteTarget, setInviteTarget] = useState<number | null>(null);
     const [downloadingReport, setDownloadingReport] = useState(false);
+
+    // Filters
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('ALL');
+    const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
 
     // Stage transition modal
     const [transitionModalVisible, setTransitionModalVisible] = useState(false);
@@ -197,10 +209,22 @@ export default function ProjectDetail() {
     const [deleteMetaMutation] = useMutation(DELETE_META);
     const [reorderMetaMutation] = useMutation(REORDER_META);
     const [reorderTasksMutation] = useMutation(REORDER_TASKS);
+    const [reassignProjectTaskMutation] = useMutation(REASSIGN_PROJECT_TASK);
     const [advanceProjectStage, { loading: advancingStage }] = useMutation(ADVANCE_PROJECT_STAGE);
     const [reopenProjectMutation, { loading: reopeningProject }] = useMutation(REOPEN_PROJECT);
 
     // --- Handlers ---
+    const handleReassignTask = async (taskId: string, targetUserKode: string) => {
+        try {
+            await reassignProjectTaskMutation({
+                variables: { taskId, targetUserKode },
+            });
+            message.success('Penanggung jawab task berhasil diperbarui');
+            refetchProjectTasks();
+        } catch (err: any) {
+            message.error(err.message || 'Gagal mengubah penanggung jawab task');
+        }
+    };
     const handleDownloadReport = async () => {
         if (!projectId) return;
         setDownloadingReport(true);
@@ -440,8 +464,72 @@ export default function ProjectDetail() {
 
     const canManageTask = (task: any) => task.userKode === me?.kodeku || task.createdBy === me?.kodeku;
 
-    const activeTasks = tasks.filter((t) => t.status !== 'COMPLETED');
-    const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
+    // --- Task Filtering (Point 3) ---
+    const filteredTasks = useMemo(() => {
+        return tasks.filter((t) => {
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                const matchTitle = t.title.toLowerCase().includes(q);
+                const matchDesc = t.description?.toLowerCase().includes(q);
+                if (!matchTitle && !matchDesc) return false;
+            }
+            if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
+            if (assigneeFilter !== 'ALL' && t.userKode !== assigneeFilter) return false;
+            return true;
+        });
+    }, [tasks, searchQuery, statusFilter, assigneeFilter]);
+
+    const activeTasks = filteredTasks.filter((t) => t.status !== 'COMPLETED');
+    const completedTasks = filteredTasks.filter((t) => t.status === 'COMPLETED');
+
+    // --- Progress Summary Calculation (Point 4) ---
+    const totalTasksCount = tasks.length;
+    const completedTasksCount = tasks.filter((t) => t.status === 'COMPLETED').length;
+    const inProgressTasksCount = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
+    const pendingTasksCount = tasks.filter((t) => t.status === 'PENDING').length;
+    const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+    // --- Central Files Extraction (Point 6) ---
+    const projectFiles = useMemo(() => {
+        const files: Array<{
+            id: string;
+            fileName: string;
+            url: string;
+            sourceTask: string;
+            type: string;
+            createdAt?: string;
+        }> = [];
+
+        tasks.forEach((t) => {
+            // Task Meta Files
+            t.meta.forEach((m) => {
+                if ((m.type === 'FILE' || m.type === 'IMAGE') && m.value) {
+                    files.push({
+                        id: m.id,
+                        fileName: m.key || 'File Attachment',
+                        url: m.value,
+                        sourceTask: t.title,
+                        type: m.type,
+                    });
+                }
+            });
+
+            // Comment Attachments
+            t.comments?.forEach((c) => {
+                c.attachments?.forEach((att) => {
+                    files.push({
+                        id: att.id,
+                        fileName: att.fileName || 'Comment Attachment',
+                        url: att.url,
+                        sourceTask: t.title,
+                        type: att.fileType || 'FILE',
+                    });
+                });
+            });
+        });
+
+        return files;
+    }, [tasks]);
 
     const handleTaskDragStart = (event: DragStartEvent) => {
         setDraggingTask(activeTasks.find((t) => t.id === event.active.id) || null);
@@ -665,140 +753,281 @@ export default function ProjectDetail() {
                 </div>
             </div>
 
-            {/* --- Stage History Timeline --- */}
-            {project.stageHistory && project.stageHistory.length > 0 && (
-                <Collapse
-                    className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl"
-                    items={[
-                        {
-                            key: 'history',
-                            label: <span className="font-medium text-slate-700 dark:text-slate-200">Riwayat Perubahan Stage ({project.stageHistory.length})</span>,
-                            children: (
-                                <Timeline
-                                    className="mt-2"
-                                    items={project.stageHistory.map((sh: any) => ({
-                                        children: (
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <Tag color={STAGE_COLORS[sh.fromStage as ProjectStage]}>{STAGE_LABELS[sh.fromStage as ProjectStage] || sh.fromStage}</Tag>
-                                                    <span>→</span>
-                                                    <Tag color={STAGE_COLORS[sh.toStage as ProjectStage]}>{STAGE_LABELS[sh.toStage as ProjectStage] || sh.toStage}</Tag>
-                                                    <Text className="text-xs text-slate-400">{sh.changedAt}</Text>
-                                                </div>
-                                                <Text className="text-xs text-slate-500 block mt-1">
-                                                    Oleh: <span className="font-medium text-slate-700 dark:text-slate-300">{sh.changedBy}</span>
-                                                    {sh.note && ` — Note: "${sh.note}"`}
-                                                </Text>
-                                            </div>
-                                        ),
-                                    }))}
-                                />
-                            ),
-                        },
-                    ]}
-                />
-            )}
+            {/* --- Progress Summary Card (Point 4) --- */}
+            <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <Title level={5} className="!mb-1 !text-slate-800 dark:!text-slate-200">Progress Project</Title>
+                        <Text className="text-xs text-slate-500">
+                            {completedTasksCount} dari {totalTasksCount} task selesai ({progressPercentage}%)
+                        </Text>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        <Tag color="blue" className="px-3 py-1 text-xs rounded-full">Pending: {pendingTasksCount}</Tag>
+                        <Tag color="processing" className="px-3 py-1 text-xs rounded-full">In Progress: {inProgressTasksCount}</Tag>
+                        <Tag color="success" className="px-3 py-1 text-xs rounded-full">Selesai: {completedTasksCount}</Tag>
+                    </div>
+                </div>
+                <Progress percent={progressPercentage} status="active" strokeColor={{ '0%': '#10B981', '100%': '#3B82F6' }} />
+            </div>
 
-            {/* --- Task Section --- */}
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                    <Title level={5} className="!mb-0 !text-slate-800 dark:!text-slate-200">Task Project</Title>
+            {/* --- View Mode & Task Controls --- */}
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <Title level={5} className="!mb-0 !text-slate-800 dark:!text-slate-200">Task & Aktivitas Project</Title>
                     <Segmented
                         value={viewMode}
-                        onChange={(v) => setViewMode(v as 'card' | 'table')}
+                        onChange={(v) => setViewMode(v as any)}
                         options={[
                             { label: 'Card', value: 'card', icon: <AppstoreOutlined /> },
                             { label: 'Table', value: 'table', icon: <TableOutlined /> },
+                            { label: 'Gantt / Timeline', value: 'timeline', icon: <CalendarOutlined /> },
+                            { label: 'Riwayat Audit', value: 'activity', icon: <HistoryOutlined /> },
+                            { label: `Lampiran (${projectFiles.length})`, value: 'files', icon: <FileOutlined /> },
                         ]}
                     />
                 </div>
 
-                {tasksLoading && !tasksData ? (
-                    <div className="flex justify-center py-12"><Spin /></div>
-                ) : tasks.length === 0 ? (
-                    <div className="!bg-white dark:!bg-slate-900 !border !border-dashed !border-slate-300 dark:!border-slate-800 rounded-xl py-12">
-                        <Empty description={<span className="!text-slate-500 dark:!text-slate-400">Belum ada task di project ini.</span>} />
-                    </div>
-                ) : viewMode === 'table' ? (
-                    <TaskTable
-                        tasks={tasks}
-                        onUpdate={handleUpdate}
-                        onDelete={handleDelete}
-                        onAddComment={handleAddComment}
-                        onToggleReaction={handleToggleReaction}
-                        onSetMeta={handleSetMeta}
-                        onDeleteMeta={handleDeleteMeta}
-                        onReorderMeta={handleReorderMeta}
-                        onReorderTasks={(orderedIds) =>
-                            reorderTasksMutation({ variables: { orderedIds } })
-                                .then(() => refetchProjectTasks())
-                                .catch((err) => message.error(err.message || 'Gagal mengubah urutan task'))
-                        }
-                        isRowEditable={canManageTask}
-                    />
-                ) : (
-                    <div>
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragStart={handleTaskDragStart}
-                            onDragEnd={handleTaskDragEnd}
-                            onDragCancel={() => setDraggingTask(null)}
-                        >
-                            <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                                {activeTasks.map((task) => (
-                                    <SortableTaskCard
-                                        key={task.id}
-                                        task={task}
-                                        onUpdate={handleUpdate}
-                                        onDelete={handleDelete}
-                                        onAddComment={handleAddComment}
-                                        onToggleReaction={handleToggleReaction}
-                                        onSetMeta={handleSetMeta}
-                                        onDeleteMeta={handleDeleteMeta}
-                                        onReorderMeta={handleReorderMeta}
-                                        readOnly={!canManageTask(task)}
-                                    />
-                                ))}
-                            </SortableContext>
-                            <DragOverlay>{draggingTask && <DragTaskPreview task={draggingTask} />}</DragOverlay>
-                        </DndContext>
-
-                        {completedTasks.length > 0 && (
-                            <Collapse
-                                className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl mt-4"
-                                items={[
-                                    {
-                                        key: 'completed',
-                                        label: (
-                                            <span className="text-sm font-medium !text-slate-600 dark:!text-slate-300">
-                                                Selesai ({completedTasks.length})
-                                            </span>
-                                        ),
-                                        children: (
-                                            <div className="pt-2">
-                                                {completedTasks.map((task) => (
-                                                    <SortableTaskCard
-                                                        key={task.id}
-                                                        task={task}
-                                                        onUpdate={handleUpdate}
-                                                        onDelete={handleDelete}
-                                                        onAddComment={handleAddComment}
-                                                        onToggleReaction={handleToggleReaction}
-                                                        onSetMeta={handleSetMeta}
-                                                        onDeleteMeta={handleDeleteMeta}
-                                                        onReorderMeta={handleReorderMeta}
-                                                        readOnly={!canManageTask(task)}
-                                                    />
-                                                ))}
-                                            </div>
-                                        ),
-                                    },
-                                ]}
-                            />
-                        )}
+                {/* --- Search & Filter Bar (Point 3) --- */}
+                {(viewMode === 'card' || viewMode === 'table' || viewMode === 'timeline') && (
+                    <div className="flex flex-col md:flex-row items-center gap-3 p-3 !bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl">
+                        <Input
+                            placeholder="Cari task berdasarkan judul atau deskripsi..."
+                            prefix={<SearchOutlined className="text-slate-400" />}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            allowClear
+                            className="flex-1"
+                        />
+                        <Select
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            className="w-40"
+                            options={[
+                                { label: 'Semua Status', value: 'ALL' },
+                                { label: 'Pending', value: 'PENDING' },
+                                { label: 'In Progress', value: 'IN_PROGRESS' },
+                                { label: 'Completed', value: 'COMPLETED' },
+                            ]}
+                        />
+                        <Select
+                            value={assigneeFilter}
+                            onChange={setAssigneeFilter}
+                            className="w-48"
+                            options={[
+                                { label: 'Semua Assignee', value: 'ALL' },
+                                ...allMembers.map((m) => ({ label: m.nama, value: m.kodeku })),
+                            ]}
+                        />
                     </div>
                 )}
+            </div>
+
+            {/* --- View Mode Content --- */}
+            {viewMode === 'activity' ? (
+                /* Point 5: Activity Log / Audit Trail */
+                <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6">
+                    <Title level={5} className="!mb-4 !text-slate-800 dark:!text-slate-200">Riwayat Perubahan & Audit Trail</Title>
+                    {project.stageHistory && project.stageHistory.length > 0 ? (
+                        <Timeline
+                            items={project.stageHistory.map((sh: any) => ({
+                                children: (
+                                    <div className="mb-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <Tag color={STAGE_COLORS[sh.fromStage as ProjectStage]}>{STAGE_LABELS[sh.fromStage as ProjectStage] || sh.fromStage}</Tag>
+                                            <span>→</span>
+                                            <Tag color={STAGE_COLORS[sh.toStage as ProjectStage]}>{STAGE_LABELS[sh.toStage as ProjectStage] || sh.toStage}</Tag>
+                                            <Text className="text-xs text-slate-400">{sh.changedAt}</Text>
+                                        </div>
+                                        <Text className="text-xs text-slate-500 block mt-1">
+                                            Oleh: <span className="font-medium text-slate-700 dark:text-slate-300">{sh.changedBy}</span>
+                                            {sh.note && ` — Catatan: "${sh.note}"`}
+                                        </Text>
+                                    </div>
+                                ),
+                            }))}
+                        />
+                    ) : (
+                        <Empty description="Belum ada riwayat perubahan stage." />
+                    )}
+                </div>
+            ) : viewMode === 'files' ? (
+                /* Point 6: Central Files & Attachments Repository */
+                <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6">
+                    <Title level={5} className="!mb-4 !text-slate-800 dark:!text-slate-200">Berkas & Lampiran Project</Title>
+                    {projectFiles.length === 0 ? (
+                        <Empty description="Belum ada berkas lampiran di project ini." />
+                    ) : (
+                        <Table
+                            dataSource={projectFiles}
+                            rowKey="id"
+                            pagination={{ pageSize: 10 }}
+                            columns={[
+                                {
+                                    title: 'Nama Berkas',
+                                    dataIndex: 'fileName',
+                                    key: 'fileName',
+                                    render: (text, record) => (
+                                        <div className="flex items-center gap-2">
+                                            <FileOutlined className="text-blue-500" />
+                                            <span className="font-medium text-slate-800 dark:text-slate-200">{text}</span>
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    title: 'Task Sumber',
+                                    dataIndex: 'sourceTask',
+                                    key: 'sourceTask',
+                                    render: (text) => <Tag color="default">{text}</Tag>,
+                                },
+                                {
+                                    title: 'Aksi',
+                                    key: 'action',
+                                    render: (_, record) => (
+                                        <Button
+                                            type="primary"
+                                            size="small"
+                                            icon={<DownloadOutlined />}
+                                            onClick={() => window.open(record.url, '_blank')}
+                                        >
+                                            Lihat / Unduh
+                                        </Button>
+                                    ),
+                                },
+                            ]}
+                        />
+                    )}
+                </div>
+            ) : viewMode === 'timeline' ? (
+                /* Point 2: Gantt / Timeline View */
+                <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6">
+                    <Title level={5} className="!mb-4 !text-slate-800 dark:!text-slate-200">Timeline & Milestone Project</Title>
+                    {filteredTasks.length === 0 ? (
+                        <Empty description="Tidak ada task untuk ditampilkan di timeline." />
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {filteredTasks.map((t) => {
+                                const assignee = allMembers.find((m) => m.kodeku === t.userKode);
+                                return (
+                                    <div key={t.id} className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                <span className="font-semibold text-slate-800 dark:text-slate-100">{t.title}</span>
+                                                <Tag color={t.status === 'COMPLETED' ? 'success' : t.status === 'IN_PROGRESS' ? 'processing' : 'default'}>
+                                                    {t.status}
+                                                </Tag>
+                                                {assignee && (
+                                                    <Tag icon={<UserOutlined />} color="blue">
+                                                        {assignee.nama}
+                                                    </Tag>
+                                                )}
+                                            </div>
+                                            {t.description && <Text className="text-xs text-slate-500 block truncate max-w-xl">{t.description}</Text>}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-xs text-slate-500 flex items-center gap-1">
+                                                <CalendarOutlined />
+                                                <span>Dibuat: {new Date(t.createdAt).toLocaleDateString('id-ID')}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            ) : tasksLoading && !tasksData ? (
+                <div className="flex justify-center py-12"><Spin /></div>
+            ) : filteredTasks.length === 0 ? (
+                <div className="!bg-white dark:!bg-slate-900 !border !border-dashed !border-slate-300 dark:!border-slate-800 rounded-xl py-12">
+                    <Empty description={<span className="!text-slate-500 dark:!text-slate-400">Belum ada task yang sesuai kriteria filter.</span>} />
+                </div>
+            ) : viewMode === 'table' ? (
+                <TaskTable
+                    tasks={filteredTasks}
+                    onUpdate={handleUpdate}
+                    onDelete={handleDelete}
+                    onAddComment={handleAddComment}
+                    onToggleReaction={handleToggleReaction}
+                    onSetMeta={handleSetMeta}
+                    onDeleteMeta={handleDeleteMeta}
+                    onReorderMeta={handleReorderMeta}
+                    onReorderTasks={(orderedIds) =>
+                        reorderTasksMutation({ variables: { orderedIds } })
+                            .then(() => refetchProjectTasks())
+                            .catch((err) => message.error(err.message || 'Gagal mengubah urutan task'))
+                    }
+                    isRowEditable={canManageTask}
+                    members={allMembers}
+                    onReassign={handleReassignTask}
+                />
+            ) : (
+                <div>
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleTaskDragStart}
+                        onDragEnd={handleTaskDragEnd}
+                        onDragCancel={() => setDraggingTask(null)}
+                    >
+                        <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                            {activeTasks.map((task) => (
+                                <SortableTaskCard
+                                    key={task.id}
+                                    task={task}
+                                    onUpdate={handleUpdate}
+                                    onDelete={handleDelete}
+                                    onAddComment={handleAddComment}
+                                    onToggleReaction={handleToggleReaction}
+                                    onSetMeta={handleSetMeta}
+                                    onDeleteMeta={handleDeleteMeta}
+                                    onReorderMeta={handleReorderMeta}
+                                    readOnly={!canManageTask(task)}
+                                    members={allMembers}
+                                    onReassign={handleReassignTask}
+                                />
+                            ))}
+                        </SortableContext>
+                        <DragOverlay>{draggingTask && <DragTaskPreview task={draggingTask} />}</DragOverlay>
+                    </DndContext>
+
+                    {completedTasks.length > 0 && (
+                        <Collapse
+                            className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl mt-4"
+                            items={[
+                                {
+                                    key: 'completed',
+                                    label: (
+                                        <span className="text-sm font-medium !text-slate-600 dark:!text-slate-300">
+                                            Selesai ({completedTasks.length})
+                                        </span>
+                                    ),
+                                    children: (
+                                        <div className="pt-2">
+                                            {completedTasks.map((task) => (
+                                                <SortableTaskCard
+                                                    key={task.id}
+                                                    task={task}
+                                                    onUpdate={handleUpdate}
+                                                    onDelete={handleDelete}
+                                                    onAddComment={handleAddComment}
+                                                    onToggleReaction={handleToggleReaction}
+                                                    onSetMeta={handleSetMeta}
+                                                    onDeleteMeta={handleDeleteMeta}
+                                                    onReorderMeta={handleReorderMeta}
+                                                    readOnly={!canManageTask(task)}
+                                                    members={allMembers}
+                                                    onReassign={handleReassignTask}
+                                                />
+                                            ))}
+                                        </div>
+                                    ),
+                                },
+                            ]}
+                        />
+                    )}
+                </div>
+            )}
             </div>
 
             {/* --- Create Task Modal --- */}
@@ -808,6 +1037,7 @@ export default function ProjectDetail() {
                 onCreate={handleCreateTask}
                 loading={creatingTask}
                 initialProjectId={projectId}
+                assignees={allMembers}
             />
 
             {/* --- Stage Transition Modal --- */}

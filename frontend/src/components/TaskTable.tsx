@@ -14,6 +14,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   HolderOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import {
   closestCenter,
@@ -34,6 +35,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { STATUS_OPTIONS } from '../constants/taskStatus';
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import {
+  Colleague,
   MetaDraft,
   Task,
   TaskStatus,
@@ -60,6 +62,8 @@ interface TaskTableProps {
     onReorderMeta: (taskId: string, orderedIds: string[]) => void
     onReorderTasks?: (orderedIds: string[]) => void // <-- baru, opsional (kalau tidak dipasang, drag dimatikan)
     isRowEditable?: (task: Task) => boolean
+    members?: Colleague[]
+    onReassign?: (taskId: string, targetUserKode: string) => Promise<void>
 }
 
 const META_PREVIEW_COUNT = 5
@@ -112,6 +116,8 @@ export default function TaskTable({
     onReorderMeta,
     onReorderTasks,
     isRowEditable = () => true,
+    members = [],
+    onReassign,
 }: TaskTableProps) {
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [editSubmitting, setEditSubmitting] = useState(false)
@@ -162,6 +168,37 @@ export default function TaskTable({
                     )}
                 </div>
             ),
+        },
+        {
+            title: 'Penanggung Jawab',
+            key: 'assignee',
+            width: 180,
+            render: (_, record) => {
+                const assignee = members.find((m) => m.kodeku === record.userKode)
+                const editable = isRowEditable(record) && !!onReassign && members.length > 0
+                if (editable) {
+                    return (
+                        <Select
+                            value={record.userKode || undefined}
+                            size="small"
+                            placeholder="Pilih..."
+                            options={members.map((m) => ({
+                                label: m.nama,
+                                value: m.kodeku,
+                            }))}
+                            className="w-full"
+                            onChange={(val) => onReassign(record.id, val)}
+                        />
+                    )
+                }
+                return assignee ? (
+                    <Tag icon={<UserOutlined />} color="blue" className="rounded-full">
+                        {assignee.nama}
+                    </Tag>
+                ) : (
+                    <span className="text-xs text-slate-400 italic">User #{record.userKode || '-'}</span>
+                )
+            },
         },
         {
             title: 'Info Tambahan',

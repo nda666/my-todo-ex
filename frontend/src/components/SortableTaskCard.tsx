@@ -7,6 +7,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import {
+  Colleague,
   MetaDraft,
   Task,
   TaskStatus,
@@ -29,6 +30,8 @@ interface SortableTaskCardProps {
     onDeleteMeta: (id: string) => Promise<void>
     onReorderMeta: (taskId: string, orderedIds: string[]) => void
     readOnly?: boolean
+    members?: Colleague[]
+    onReassign?: (taskId: string, targetUserKode: string) => Promise<void>
 }
 
 export default function SortableTaskCard({ task, ...rest }: SortableTaskCardProps) {

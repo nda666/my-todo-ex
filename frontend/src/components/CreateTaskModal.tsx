@@ -13,9 +13,9 @@ import {
 import { Dayjs } from 'dayjs';
 import { useQuery } from '@apollo/client';
 
-import { GET_PROJECTS } from '../lib/queries';
+import { GET_COLLEAGUES, GET_PROJECTS } from '../lib/queries';
 import { Project } from '../types/project';
-import { MetaDraft } from '../types/task';
+import { Colleague, MetaDraft } from '../types/task';
 import TaskMetaEditor from './TaskMetaEditor';
 
 const { Title } = Typography
@@ -27,6 +27,7 @@ interface CreateTaskModalProps {
   onCreate: (values: {
     title: string
     description?: string
+    targetUserKode?: string
     meta: MetaDraft[]
     startDate?: string
     dueDate?: string
@@ -35,25 +36,33 @@ interface CreateTaskModalProps {
   }) => Promise<void>
   loading: boolean
   initialProjectId?: string
+  assignees?: Colleague[]
 }
 
-export default function CreateTaskModal({ open, onCancel, onCreate, loading, initialProjectId }: CreateTaskModalProps) {
+export default function CreateTaskModal({ open, onCancel, onCreate, loading, initialProjectId, assignees }: CreateTaskModalProps) {
   const [form] = Form.useForm()
   const [metaItems, setMetaItems] = React.useState<MetaDraft[]>([])
   const [startDate, setStartDate] = React.useState<Dayjs | null>(null)
   const [dueDate, setDueDate] = React.useState<Dayjs | null>(null)
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(initialProjectId || null)
+  const [selectedTargetUser, setSelectedTargetUser] = React.useState<string | undefined>(undefined)
   const [subtasks, setSubtasks] = React.useState<string[]>([])
   const [newSubtaskText, setNewSubtaskText] = React.useState('')
 
   const { data: projectsData, loading: loadingProjects } = useQuery(GET_PROJECTS, {
     skip: !open,
   })
+  const { data: colleaguesData, loading: loadingColleagues } = useQuery(GET_COLLEAGUES, {
+    skip: !open || !!assignees,
+  })
+
   const projects: Project[] = projectsData?.projects || []
+  const availableAssignees: Colleague[] = assignees || colleaguesData?.colleagues || []
 
   React.useEffect(() => {
     if (open) {
       setSelectedProjectId(initialProjectId || null)
+      setSelectedTargetUser(undefined)
     }
   }, [open, initialProjectId])
 
@@ -62,6 +71,7 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
     setStartDate(null)
     setDueDate(null)
     setSelectedProjectId(initialProjectId || null)
+    setSelectedTargetUser(undefined)
     setSubtasks([])
     setNewSubtaskText('')
   }
@@ -86,6 +96,7 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
     await onCreate({
       title: values.title,
       description: values.description,
+      targetUserKode: selectedTargetUser,
       meta: metaItems,
       startDate: startDate?.format('YYYY-MM-DD'),
       dueDate: dueDate?.format('YYYY-MM-DD'),
@@ -114,6 +125,26 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false} className="mt-4">
         <Form.Item name="title" label="Judul Task" rules={[{ required: true, message: 'Judul task wajib diisi!' }]}>
           <Input placeholder="Masukkan judul tugas..." size="large" className="rounded-lg" />
+        </Form.Item>
+
+        <Form.Item label="Penanggung Jawab / Assignee (Opsional)">
+          <Select
+            placeholder="Pilih pegawai / bawahan..."
+            allowClear
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
+            }
+            loading={loadingColleagues}
+            value={selectedTargetUser}
+            onChange={(val) => setSelectedTargetUser(val || undefined)}
+            options={availableAssignees.map((c) => ({
+              label: `${c.nama}${c.jabatan?.nama ? ` (${c.jabatan.nama})` : ''}`,
+              value: c.kodeku,
+            }))}
+            className="w-full"
+            size="large"
+          />
         </Form.Item>
 
         <Form.Item label="Project (Opsional)">
