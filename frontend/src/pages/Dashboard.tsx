@@ -46,6 +46,7 @@ import SortableTaskCard from '../components/SortableTaskCard';
 import TaskSearchFilter from '../components/TaskSearchFilter';
 import TaskStatusTabs from '../components/TaskStatusTabs';
 import TaskTable from '../components/TaskTable';
+import UpcomingTasksCard from '../components/UpcomingTasksCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import { useInfiniteTasks } from '../hooks/useInfiniteTasks';
@@ -311,6 +312,10 @@ export default function Dashboard() {
                 Task Baru
               </Button>
             </div>
+          </div>
+
+          <div className="mb-4">
+            <UpcomingTasksCard tasks={tasks} />
           </div>
 
           <TaskSearchFilter

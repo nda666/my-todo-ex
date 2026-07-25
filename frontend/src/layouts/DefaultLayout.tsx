@@ -14,7 +14,7 @@ import {
     MenuUnfoldOutlined,
 } from '@ant-design/icons';
 
-import Sidebar from '../components/Sidebar';
+import CombinedSidebar from '../components/CombinedSidebar';
 import ThemeSelector from '../components/ThemeSelector';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -24,7 +24,7 @@ import { Colleague } from '../types/task';
 const { Header, Content } = Layout
 const { Title } = Typography
 
-const SIDEBAR_WIDTH = 280
+const COMBINED_SIDEBAR_WIDTH = 288
 
 interface DefaultLayoutProps {
     title: string
@@ -59,10 +59,9 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
     }
 
     const sidebarContent = (
-        <Sidebar
+        <CombinedSidebar
             me={me}
             isLeader={isLeader}
-            collapsed={false}
             teamMembers={teamMembers}
             teamTaskCounts={teamTaskCounts}
             currentDivisiKode={currentDivisiKode}
@@ -80,12 +79,11 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
             {!isMobile && (
                 <div
                     className="fixed top-0 left-0 h-screen z-50 transition-all duration-200"
-                    style={{ width: collapsed ? 0 : SIDEBAR_WIDTH }}
+                    style={{ width: collapsed ? 64 : COMBINED_SIDEBAR_WIDTH }}
                 >
-                    <Sidebar
+                    <CombinedSidebar
                         me={me}
                         isLeader={isLeader}
-                        collapsed={collapsed}
                         teamMembers={teamMembers}
                         teamTaskCounts={teamTaskCounts}
                         currentDivisiKode={currentDivisiKode}
@@ -101,7 +99,7 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
                     placement="left"
                     open={mobileOpen}
                     onClose={() => setMobileOpen(false)}
-                    width={SIDEBAR_WIDTH}
+                    width={COMBINED_SIDEBAR_WIDTH}
                     closable={false}
                     bodyStyle={{ padding: 0 }}
                 >
@@ -111,7 +109,7 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
 
             <Layout
                 className="transition-all duration-200"
-                style={{ marginLeft: !isMobile && !collapsed ? SIDEBAR_WIDTH : 0 }}
+                style={{ marginLeft: !isMobile ? (collapsed ? 64 : COMBINED_SIDEBAR_WIDTH) : 0 }}
             >
                 <Header className="!bg-white dark:!bg-slate-900 !border-b !border-slate-200 dark:!border-slate-800 px-3 sm:px-6 py-4 flex items-center justify-between h-16 sticky top-0 z-40">
                     <div className="flex items-center gap-2 sm:gap-4 min-w-0">
@@ -131,7 +129,7 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
                     </div>
                 </Header>
 
-                <Content className="max-w-4xl w-full mx-auto p-3 sm:p-6">
+                <Content className="max-w-5xl w-full mx-auto p-3 sm:p-6">
                     {children}
                 </Content>
             </Layout>

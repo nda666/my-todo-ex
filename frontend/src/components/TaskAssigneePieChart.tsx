@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import * as d3 from 'd3';
-import { Card, Empty, Tag, Typography, Tooltip as AntTooltip } from 'antd';
-import { PieChartOutlined, UserOutlined } from '@ant-design/icons';
+import { Empty, Tag, Typography } from 'antd';
+import { PieChartOutlined } from '@ant-design/icons';
 import { Colleague, Task } from '../types/task';
 
 const { Title, Text } = Typography;

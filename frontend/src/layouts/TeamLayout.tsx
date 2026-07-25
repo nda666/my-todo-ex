@@ -22,7 +22,7 @@ import {
     MenuUnfoldOutlined,
 } from '@ant-design/icons';
 
-import TeamsPageSidebar from '../components/TeamsPageSidebar';
+import CombinedSidebar from '../components/CombinedSidebar';
 import ThemeSelector from '../components/ThemeSelector';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -31,7 +31,7 @@ import { useLocalStorageState } from '../hooks/useLocalStorageState';
 const { Header, Content } = Layout
 const { Title } = Typography
 
-const SIDEBAR_WIDTH = 260
+const COMBINED_SIDEBAR_WIDTH = 288
 
 interface TeamPageHeader {
     title: string
@@ -106,11 +106,11 @@ export default function TeamLayout({
             {!isMobile && (
                 <div
                     className="fixed top-0 left-0 h-screen z-50 transition-all duration-200"
-                    style={{ width: collapsed ? 0 : SIDEBAR_WIDTH }}
+                    style={{ width: collapsed ? 64 : COMBINED_SIDEBAR_WIDTH }}
                 >
-                    <TeamsPageSidebar
+                    <CombinedSidebar
                         me={me}
-                        collapsed={collapsed}
+                        isLeader={me?.pegawai?.statusLeader === 1}
                         currentDivisiKode={currentDivisiKode}
                         onLogout={handleLogout}
                     />
@@ -122,13 +122,13 @@ export default function TeamLayout({
                     placement="left"
                     open={mobileOpen}
                     onClose={() => setMobileOpen(false)}
-                    width={SIDEBAR_WIDTH}
+                    width={COMBINED_SIDEBAR_WIDTH}
                     closable={false}
                     bodyStyle={{ padding: 0 }}
                 >
-                    <TeamsPageSidebar
+                    <CombinedSidebar
                         me={me}
-                        collapsed={false}
+                        isLeader={me?.pegawai?.statusLeader === 1}
                         currentDivisiKode={currentDivisiKode}
                         onLogout={handleLogout}
                     />
@@ -137,7 +137,7 @@ export default function TeamLayout({
 
             <Layout
                 className="transition-all duration-200"
-                style={{ marginLeft: !isMobile && !collapsed ? SIDEBAR_WIDTH : 0 }}
+                style={{ marginLeft: !isMobile ? (collapsed ? 64 : COMBINED_SIDEBAR_WIDTH) : 0 }}
             >
                 <Header className="!bg-white dark:!bg-slate-900 !border-b !border-slate-200 dark:!border-slate-800 px-3 sm:px-6 flex items-center justify-between h-16 sticky top-0 z-40">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
