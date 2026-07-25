@@ -1,52 +1,52 @@
 // frontend/src/pages/ProjectDetail.tsx
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
 } from 'react';
 
 import {
-  Button,
-  Collapse,
-  Empty,
-  message,
-  Segmented,
-  Select,
-  Spin,
-  Tag,
-  Typography,
+    Button,
+    Collapse,
+    Empty,
+    message,
+    Segmented,
+    Select,
+    Spin,
+    Tag,
+    Typography,
 } from 'antd';
 import {
-  useNavigate,
-  useParams,
+    useNavigate,
+    useParams,
 } from 'react-router-dom';
 
 import {
-  AppstoreOutlined,
-  CrownFilled,
-  PlusOutlined,
-  TableOutlined,
+    AppstoreOutlined,
+    CrownFilled,
+    PlusOutlined,
+    TableOutlined,
 } from '@ant-design/icons';
 import {
-  useApolloClient,
-  useMutation,
-  useQuery,
+    useApolloClient,
+    useMutation,
+    useQuery,
 } from '@apollo/client';
 import {
-  closestCenter,
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
+    closestCenter,
+    DndContext,
+    DragEndEvent,
+    DragOverlay,
+    DragStartEvent,
+    PointerSensor,
+    useSensor,
+    useSensors,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
-  SortableContext,
-  verticalListSortingStrategy,
+    arrayMove,
+    SortableContext,
+    verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
 import CreateTaskModal from '../components/CreateTaskModal';
@@ -56,27 +56,27 @@ import TaskTable from '../components/TaskTable';
 import { useAuth } from '../contexts/AuthContext';
 import { useTeamHeader } from '../layouts/TeamLayout';
 import {
-  ADD_COMMENT,
-  ADD_PROJECT_LEADER,
-  CREATE_PROJECT_TASK,
-  DELETE_META,
-  DELETE_TASK,
-  GET_COLLEAGUES_BY_DIVISI,
-  GET_DIVISIONS,
-  GET_PROJECT,
-  GET_PROJECT_TASKS,
-  INVITE_DIVISION,
-  REMOVE_DIVISION,
-  REMOVE_PROJECT_LEADER,
-  REORDER_META,
-  REORDER_TASKS,
-  SET_META,
-  TOGGLE_REACTION,
-  UPDATE_TASK,
+    ADD_COMMENT,
+    ADD_PROJECT_LEADER,
+    CREATE_PROJECT_TASK,
+    DELETE_META,
+    DELETE_TASK,
+    GET_COLLEAGUES_BY_DIVISI,
+    GET_DIVISIONS,
+    GET_PROJECT,
+    GET_PROJECT_TASKS,
+    INVITE_DIVISION,
+    REMOVE_DIVISION,
+    REMOVE_PROJECT_LEADER,
+    REORDER_META,
+    REORDER_TASKS,
+    SET_META,
+    TOGGLE_REACTION,
+    UPDATE_TASK,
 } from '../lib/queries';
 import {
-  Colleague,
-  Task,
+    Colleague,
+    Task,
 } from '../types/task';
 
 const { Title, Text } = Typography

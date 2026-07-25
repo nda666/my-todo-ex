@@ -1,30 +1,18 @@
-import React, {
-  useEffect,
-  useState,
-} from 'react';
-
+import React, { useState, useEffect } from 'react';
+import { Input, DatePicker, Select, Button, Typography } from 'antd';
 import {
-  Button,
-  DatePicker,
-  Input,
-  Select,
-  Typography,
-} from 'antd';
-import dayjs, { Dayjs } from 'dayjs';
-
-import {
-  ClearOutlined,
-  DownOutlined,
-  FilterOutlined,
-  LoadingOutlined,
   SearchOutlined,
+  FilterOutlined,
+  DownOutlined,
   UpOutlined,
+  ClearOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@apollo/client';
-
-import { useDebounce } from '../hooks/useDebounce';
+import dayjs, { Dayjs } from 'dayjs';
 import { GET_PROJECTS } from '../lib/queries';
 import { Project } from '../types/project';
+import { useDebounce } from '../hooks/useDebounce';
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;

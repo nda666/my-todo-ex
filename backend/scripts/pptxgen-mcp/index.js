@@ -1,8 +1,6 @@
 // backend/scripts/pptxgen-mcp/index.js
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
-const {
-  StdioServerTransport,
-} = require("@modelcontextprotocol/sdk/server/stdio.js");
+const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
 const { z } = require("zod");
 const PptxGenJS = require("pptxgenjs");
 const crypto = require("crypto");
@@ -17,7 +15,7 @@ function getPresentation(id) {
   const p = presentations.get(id);
   if (!p) {
     throw new Error(
-      `presentationId '${id}' tidak ditemukan. Panggil create_presentation dulu.`,
+      `presentationId '${id}' tidak ditemukan. Panggil create_presentation dulu.`
     );
   }
   return p;
@@ -48,13 +46,13 @@ function fetchUrl(url, redirectCount = 0) {
             res.resume();
             reject(
               new Error(
-                `Location header tidak valid: "${res.headers.location}" (dari ${url})`,
-              ),
+                `Location header tidak valid: "${res.headers.location}" (dari ${url})`
+              )
             );
             return;
           }
           console.error(
-            `[pptxgen-mcp] redirect ${res.statusCode} -> ${nextUrl}`,
+            `[pptxgen-mcp] redirect ${res.statusCode} -> ${nextUrl}`
           );
           res.resume();
           fetchUrl(nextUrl, redirectCount + 1).then(resolve, reject);
@@ -66,8 +64,8 @@ function fetchUrl(url, redirectCount = 0) {
           res.on("end", () => {
             reject(
               new Error(
-                `HTTP ${res.statusCode} saat GET ${url} - body: ${Buffer.concat(chunks).toString("utf-8").slice(0, 300)}`,
-              ),
+                `HTTP ${res.statusCode} saat GET ${url} - body: ${Buffer.concat(chunks).toString("utf-8").slice(0, 300)}`
+              )
             );
           });
           return;
@@ -78,12 +76,12 @@ function fetchUrl(url, redirectCount = 0) {
         res.on("data", (c) => chunks.push(c));
         res.on("end", () => {
           console.error(
-            `[pptxgen-mcp] sukses GET ${url} — ${contentType}, ${Buffer.concat(chunks).length} bytes`,
+            `[pptxgen-mcp] sukses GET ${url} — ${contentType}, ${Buffer.concat(chunks).length} bytes`
           );
           resolve({ buffer: Buffer.concat(chunks), contentType });
         });
         res.on("error", reject);
-      },
+      }
     );
     req.on("timeout", () => req.destroy(new Error(`timeout 10s GET ${url}`)));
     req.on("error", (err) => {
@@ -102,7 +100,7 @@ async function fetchAsDataUri(url, retries = 1) {
     } catch (err) {
       lastErr = err;
       console.error(
-        `[pptxgen-mcp] percobaan ${attempt + 1}/${retries + 1} gagal untuk ${url}: ${err.message}`,
+        `[pptxgen-mcp] percobaan ${attempt + 1}/${retries + 1} gagal untuk ${url}: ${err.message}`
       );
     }
   }
@@ -124,9 +122,7 @@ server.tool(
         primary: z
           .string()
           .optional()
-          .describe(
-            "hex tanpa # - warna solid untuk slide judul/divider/penutup",
-          ),
+          .describe("hex tanpa # - warna solid untuk slide judul/divider/penutup"),
         accent: z
           .string()
           .optional()
@@ -161,13 +157,10 @@ server.tool(
 
     return {
       content: [
-        {
-          type: "text",
-          text: JSON.stringify({ presentationId: id, theme: mergedTheme }),
-        },
+        { type: "text", text: JSON.stringify({ presentationId: id, theme: mergedTheme }) },
       ],
     };
-  },
+  }
 );
 
 const iconSchema = z.object({ set: z.string(), name: z.string() }).optional();
@@ -200,7 +193,7 @@ const layoutSchemas = {
             .string()
             .optional()
             .describe("hex tanpa #, default theme.primary"),
-        }),
+        })
       )
       .min(1)
       .max(4),
@@ -225,7 +218,7 @@ const layoutSchemas = {
           items: z.array(z.string()),
           icon: iconSchema,
           accentColor: z.string().optional(),
-        }),
+        })
       )
       .min(1)
       .max(3),
@@ -279,7 +272,7 @@ server.tool(
     props: z
       .record(z.any())
       .describe(
-        "Isi konten sesuai skema layout yang dipilih (lihat deskripsi tiap layout)",
+        "Isi konten sesuai skema layout yang dipilih (lihat deskripsi tiap layout)"
       ),
   },
   async ({ presentationId, layout, props }) => {
@@ -313,11 +306,11 @@ server.tool(
           slideNumber,
           totalSlides: p.slideCount,
           presentationTitle: p.pptx.title,
-        },
+        }
       );
     } catch (err) {
       console.error(
-        `[pptxgen-mcp] layout '${layout}' gagal sebagian: ${err.message}`,
+        `[pptxgen-mcp] layout '${layout}' gagal sebagian: ${err.message}`
       );
     }
 
@@ -326,7 +319,7 @@ server.tool(
     return {
       content: [{ type: "text", text: JSON.stringify({ slideIndex, layout }) }],
     };
-  },
+  }
 );
 
 server.tool(
@@ -343,7 +336,7 @@ server.tool(
     return {
       content: [{ type: "text", text: JSON.stringify({ outputPath }) }],
     };
-  },
+  }
 );
 
 const transport = new StdioServerTransport();

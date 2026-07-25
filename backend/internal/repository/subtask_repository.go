@@ -31,7 +31,7 @@ func (r *subtaskRepository) FindByTaskID(ctx context.Context, taskID uint) ([]mo
 	var subtasks []models.Subtask
 	err := r.db.WithContext(ctx).
 		Where("task_id = ?", taskID).
-		Order("CASE WHEN status = 'pending' THEN 0 ELSE 1 END ASC, sort_order ASC, id ASC").
+		Order("CASE WHEN LOWER(status) = 'pending' THEN 0 ELSE 1 END ASC, sort_order ASC, id ASC").
 		Find(&subtasks).Error
 	return subtasks, err
 }
@@ -78,7 +78,7 @@ func (r *subtaskRepository) Reorder(ctx context.Context, taskID uint, orderedIDs
 		}
 
 		return tx.Where("task_id = ?", taskID).
-			Order("CASE WHEN status = 'pending' THEN 0 ELSE 1 END ASC, sort_order ASC, id ASC").
+			Order("CASE WHEN LOWER(status) = 'pending' THEN 0 ELSE 1 END ASC, sort_order ASC, id ASC").
 			Find(&updatedSubtasks).Error
 	})
 

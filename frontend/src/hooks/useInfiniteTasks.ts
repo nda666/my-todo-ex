@@ -1,9 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
-import { useQuery } from '@apollo/client';
+import { useQuery } from "@apollo/client";
 
-import { GET_TASKS } from '../lib/queries';
-import { Task } from '../types/task';
+import { GET_TASKS } from "../lib/queries";
+import { Task } from "../types/task";
 
 const PAGE_SIZE = 20;
 
@@ -14,10 +14,7 @@ export interface TaskFilters {
   projectId?: string | null;
 }
 
-export function useInfiniteTasks(
-  userKode?: string | null,
-  filters?: TaskFilters,
-) {
+export function useInfiniteTasks(userKode?: string | null, filters?: TaskFilters) {
   const queryVariables = {
     limit: PAGE_SIZE,
     cursor: null,

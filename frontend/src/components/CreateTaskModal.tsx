@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { PlusOutlined, DeleteOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import {
   Button,
   DatePicker,
@@ -10,12 +11,6 @@ import {
   Typography,
 } from 'antd';
 import { Dayjs } from 'dayjs';
-
-import {
-  DeleteOutlined,
-  PlusOutlined,
-  UnorderedListOutlined,
-} from '@ant-design/icons';
 import { useQuery } from '@apollo/client';
 
 import { GET_PROJECTS } from '../lib/queries';

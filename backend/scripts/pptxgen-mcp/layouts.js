@@ -17,21 +17,21 @@ const GRID = {
   marginRight: 0.6,
   marginTop: 0.45,
   marginBottom: 0.45,
-  contentW: 8.8, // 10 - (2 * 0.6)
-  contentTop: 1.3, // Y start for body content
-  contentH: 3.8, // Body content height available
-  footerY: 5.25, // Y position for footer rule & page numbers
+  contentW: 8.8,     // 10 - (2 * 0.6)
+  contentTop: 1.30,  // Y start for body content
+  contentH: 3.80,    // Body content height available
+  footerY: 5.25,     // Y position for footer rule & page numbers
 };
 
 const DEFAULT_THEME = {
-  primary: "0F172A", // Executive Deep Navy / Slate
-  accent: "0284C7", // Vivid Sky Blue / Brand Accent
+  primary: "0F172A",    // Executive Deep Navy / Slate
+  accent: "0284C7",     // Vivid Sky Blue / Brand Accent
   background: "F8FAFC", // Off-white clean background
-  surface: "FFFFFF", // High-contrast surface card
+  surface: "FFFFFF",    // High-contrast surface card
   surfaceAlt: "F1F5F9", // Soft slate surface
-  textColor: "0F172A", // High-contrast primary text
+  textColor: "0F172A",  // High-contrast primary text
   mutedColor: "64748B", // Muted slate secondary text
-  border: "E2E8F0", // Subtle stroke border
+  border: "E2E8F0",     // Subtle stroke border
   fontFace: "Calibri",
 };
 
@@ -76,8 +76,7 @@ function relativeLuminance(hex) {
   const r = parseInt(h.substring(0, 2), 16) / 255;
   const g = parseInt(h.substring(2, 4), 16) / 255;
   const b = parseInt(h.substring(4, 6), 16) / 255;
-  const lin = (c) =>
-    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const lin = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
@@ -101,14 +100,7 @@ function readableMutedColor(bgHex, theme) {
 // 3. TYPOGRAPHY & DYNAMIC FIT HELPERS
 // ============================================================================
 
-function calculateFontSize(
-  text,
-  maxWInches,
-  maxHInches,
-  baseFontSize,
-  minFontSize = 10,
-  lineRatio = 1.25,
-) {
+function calculateFontSize(text, maxWInches, maxHInches, baseFontSize, minFontSize = 10, lineRatio = 1.25) {
   if (!text) return baseFontSize;
   const str = Array.isArray(text) ? text.join("\n") : String(text);
   if (!str.trim()) return baseFontSize;
@@ -117,17 +109,13 @@ function calculateFontSize(
   let totalLineCount = 0;
 
   for (const line of lines) {
-    const avgCharWidthInches = (baseFontSize * 0.5) / 72;
-    const charsPerLine = Math.max(
-      1,
-      Math.floor(maxWInches / avgCharWidthInches),
-    );
+    const avgCharWidthInches = (baseFontSize * 0.50) / 72;
+    const charsPerLine = Math.max(1, Math.floor(maxWInches / avgCharWidthInches));
     const wrappedLines = Math.ceil((line.length || 1) / charsPerLine);
     totalLineCount += Math.max(1, wrappedLines);
   }
 
-  const estimatedHeightInches =
-    (totalLineCount * baseFontSize * lineRatio) / 72;
+  const estimatedHeightInches = (totalLineCount * baseFontSize * lineRatio) / 72;
   if (estimatedHeightInches > maxHInches) {
     const scaleFactor = maxHInches / estimatedHeightInches;
     const adjustedSize = Math.floor(baseFontSize * scaleFactor);
@@ -137,12 +125,7 @@ function calculateFontSize(
   return baseFontSize;
 }
 
-function computeBulletLayout(
-  items,
-  containerHInches,
-  baseFontSize = 11,
-  minFontSize = 9,
-) {
+function computeBulletLayout(items, containerHInches, baseFontSize = 11, minFontSize = 9) {
   const count = (items && items.length) || 1;
   let fontSize = baseFontSize;
 
@@ -160,9 +143,7 @@ async function iconDataUri(fetchAsDataUri, iconSet, iconName, colorHex) {
   try {
     return await fetchAsDataUri(url, 1);
   } catch (err) {
-    console.error(
-      `[pptxgen-mcp] Gagal memuat ikon ${iconSet}:${iconName}: ${err.message}`,
-    );
+    console.error(`[pptxgen-mcp] Gagal memuat ikon ${iconSet}:${iconName}: ${err.message}`);
     return null;
   }
 }
@@ -176,10 +157,7 @@ function renderSlideHeader(slide, pptx, theme, title, eyebrow, subtitle) {
   const bgColor = hexOrDefault(theme.background, DEFAULT_THEME.background);
   const titleColor = readableTextColor(bgColor, theme);
   const mutedColor = readableMutedColor(bgColor, theme);
-  const accentColor = hexOrDefault(
-    theme.accent || theme.primary,
-    DEFAULT_THEME.accent,
-  );
+  const accentColor = hexOrDefault(theme.accent || theme.primary, DEFAULT_THEME.accent);
 
   let currentY = GRID.marginTop;
 
@@ -249,14 +227,7 @@ function renderSlideHeader(slide, pptx, theme, title, eyebrow, subtitle) {
   }
 }
 
-function renderSlideFooter(
-  slide,
-  pptx,
-  theme,
-  slideNumber,
-  totalSlides,
-  presentationTitle,
-) {
+function renderSlideFooter(slide, pptx, theme, slideNumber, totalSlides, presentationTitle) {
   if (!slideNumber) return;
 
   const fontFace = theme.fontFace || DEFAULT_THEME.fontFace;
@@ -498,12 +469,7 @@ async function buildSectionHeader(slide, pptx, ctx, props) {
 
   if (props.icon) {
     try {
-      const dataUri = await iconDataUri(
-        fetchAsDataUri,
-        props.icon.set,
-        props.icon.name,
-        accentColor,
-      );
+      const dataUri = await iconDataUri(fetchAsDataUri, props.icon.set, props.icon.name, accentColor);
       if (dataUri) {
         slide.addShape(pptx.ShapeType.roundRect, {
           x: GRID.marginLeft,
@@ -515,13 +481,7 @@ async function buildSectionHeader(slide, pptx, ctx, props) {
           line: { color: accentColor, width: 1 },
           shadow: SHADOWS.subtle,
         });
-        slide.addImage({
-          data: dataUri,
-          x: GRID.marginLeft + 0.18,
-          y: currentY + 0.18,
-          w: 0.54,
-          h: 0.54,
-        });
+        slide.addImage({ data: dataUri, x: GRID.marginLeft + 0.18, y: currentY + 0.18, w: 0.54, h: 0.54 });
         currentY += 1.1;
       }
     } catch (err) {
@@ -594,10 +554,7 @@ async function buildStatCards(slide, pptx, ctx, props) {
   for (let i = 0; i < cardCount; i++) {
     const c = cards[i];
     const cardX = GRID.marginLeft + i * (cardW + gap);
-    const accent = hexOrDefault(
-      c.accentColor || theme.primary,
-      DEFAULT_THEME.accent,
-    );
+    const accent = hexOrDefault(c.accentColor || theme.primary, DEFAULT_THEME.accent);
 
     // Glass Card Container
     slide.addShape(pptx.ShapeType.roundRect, {
@@ -607,10 +564,7 @@ async function buildStatCards(slide, pptx, ctx, props) {
       h: cardH,
       rectRadius: 0.08,
       fill: { color: cardBg },
-      line: {
-        color: hexOrDefault(theme.border, DEFAULT_THEME.border),
-        width: 1,
-      },
+      line: { color: hexOrDefault(theme.border, DEFAULT_THEME.border), width: 1 },
       shadow: SHADOWS.card,
     });
 
@@ -626,12 +580,7 @@ async function buildStatCards(slide, pptx, ctx, props) {
     // Icon Container Badge
     if (c.icon) {
       try {
-        const dataUri = await iconDataUri(
-          fetchAsDataUri,
-          c.icon.set,
-          c.icon.name,
-          accent,
-        );
+        const dataUri = await iconDataUri(fetchAsDataUri, c.icon.set, c.icon.name, accent);
         if (dataUri) {
           slide.addShape(pptx.ShapeType.roundRect, {
             x: cardX + 0.2,
@@ -685,9 +634,7 @@ async function buildStatCards(slide, pptx, ctx, props) {
         w: cardW - 0.4,
         h: 0.35,
         rectRadius: 0.05,
-        fill: {
-          color: hexOrDefault(theme.surfaceAlt, DEFAULT_THEME.surfaceAlt),
-        },
+        fill: { color: hexOrDefault(theme.surfaceAlt, DEFAULT_THEME.surfaceAlt) },
       });
       slide.addText(c.detail, {
         x: cardX + 0.2,
@@ -704,14 +651,7 @@ async function buildStatCards(slide, pptx, ctx, props) {
     }
   }
 
-  renderSlideFooter(
-    slide,
-    pptx,
-    theme,
-    props.slideNumber,
-    props.totalSlides,
-    props.presentationTitle,
-  );
+  renderSlideFooter(slide, pptx, theme, props.slideNumber, props.totalSlides, props.presentationTitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -723,13 +663,7 @@ function buildChartFocus(slide, pptx, ctx, props) {
   const bgColor = hexOrDefault(theme.background, DEFAULT_THEME.background);
   slide.background = { color: bgColor };
 
-  renderSlideHeader(
-    slide,
-    pptx,
-    theme,
-    props.title,
-    "DATA & GRAPHICAL ANALYSIS",
-  );
+  renderSlideHeader(slide, pptx, theme, props.title, "DATA & GRAPHICAL ANALYSIS");
 
   const titleColor = readableTextColor(bgColor, theme);
   const mutedColor = readableMutedColor(bgColor, theme);
@@ -747,10 +681,9 @@ function buildChartFocus(slide, pptx, ctx, props) {
     line: pptx.ChartType.line,
   };
 
-  const chartColors =
-    props.colors && props.colors.length
-      ? props.colors.map((c) => hexOrDefault(c, primaryColor))
-      : [primaryColor, accentColor, "6366F1", "10B981", "F59E0B"];
+  const chartColors = props.colors && props.colors.length
+    ? props.colors.map(c => hexOrDefault(c, primaryColor))
+    : [primaryColor, accentColor, "6366F1", "10B981", "F59E0B"];
 
   // Chart Container Outer Card Frame
   slide.addShape(pptx.ShapeType.roundRect, {
@@ -786,7 +719,7 @@ function buildChartFocus(slide, pptx, ctx, props) {
       catAxisLabelColor: mutedColor,
       valAxisLabelColor: mutedColor,
       legendColor: mutedColor,
-    },
+    }
   );
 
   if (hasSidePoints) {
@@ -808,10 +741,7 @@ function buildChartFocus(slide, pptx, ctx, props) {
         h: sideCardH,
         rectRadius: 0.06,
         fill: { color: cardBg },
-        line: {
-          color: hexOrDefault(theme.border, DEFAULT_THEME.border),
-          width: 1,
-        },
+        line: { color: hexOrDefault(theme.border, DEFAULT_THEME.border), width: 1 },
         shadow: SHADOWS.subtle,
       });
 
@@ -849,14 +779,7 @@ function buildChartFocus(slide, pptx, ctx, props) {
     }
   }
 
-  renderSlideFooter(
-    slide,
-    pptx,
-    theme,
-    props.slideNumber,
-    props.totalSlides,
-    props.presentationTitle,
-  );
+  renderSlideFooter(slide, pptx, theme, props.slideNumber, props.totalSlides, props.presentationTitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -885,10 +808,7 @@ async function buildContentColumns(slide, pptx, ctx, props) {
   for (let i = 0; i < colCount; i++) {
     const col = cols[i];
     const colX = GRID.marginLeft + i * (colW + gap);
-    const accent = hexOrDefault(
-      col.accentColor || theme.primary,
-      DEFAULT_THEME.accent,
-    );
+    const accent = hexOrDefault(col.accentColor || theme.primary, DEFAULT_THEME.accent);
 
     // Card Container
     slide.addShape(pptx.ShapeType.roundRect, {
@@ -898,10 +818,7 @@ async function buildContentColumns(slide, pptx, ctx, props) {
       h: colH,
       rectRadius: 0.08,
       fill: { color: cardBg },
-      line: {
-        color: hexOrDefault(theme.border, DEFAULT_THEME.border),
-        width: 1,
-      },
+      line: { color: hexOrDefault(theme.border, DEFAULT_THEME.border), width: 1 },
       shadow: SHADOWS.subtle,
     });
 
@@ -933,20 +850,9 @@ async function buildContentColumns(slide, pptx, ctx, props) {
 
     if (col.icon) {
       try {
-        const dataUri = await iconDataUri(
-          fetchAsDataUri,
-          col.icon.set,
-          col.icon.name,
-          accent,
-        );
+        const dataUri = await iconDataUri(fetchAsDataUri, col.icon.set, col.icon.name, accent);
         if (dataUri) {
-          slide.addImage({
-            data: dataUri,
-            x: colX + colW - 0.5,
-            y: colY + 0.2,
-            w: 0.32,
-            h: 0.32,
-          });
+          slide.addImage({ data: dataUri, x: colX + colW - 0.5, y: colY + 0.2, w: 0.32, h: 0.32 });
           headerTextW -= 0.4;
         }
       } catch (err) {
@@ -974,14 +880,8 @@ async function buildContentColumns(slide, pptx, ctx, props) {
       fill: { color: accent },
     });
 
-    const items =
-      col.items && col.items.length ? col.items : ["Tidak ada item."];
-    const { fontSize, lineSpacing } = computeBulletLayout(
-      items,
-      colH - 0.8,
-      11,
-      9,
-    );
+    const items = col.items && col.items.length ? col.items : ["Tidak ada item."];
+    const { fontSize, lineSpacing } = computeBulletLayout(items, colH - 0.8, 11, 9);
     const bulletText = items.join("\n");
 
     slide.addText(bulletText, {
@@ -998,14 +898,7 @@ async function buildContentColumns(slide, pptx, ctx, props) {
     });
   }
 
-  renderSlideFooter(
-    slide,
-    pptx,
-    theme,
-    props.slideNumber,
-    props.totalSlides,
-    props.presentationTitle,
-  );
+  renderSlideFooter(slide, pptx, theme, props.slideNumber, props.totalSlides, props.presentationTitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -1017,14 +910,7 @@ function buildTableSlide(slide, pptx, ctx, props) {
   const bgColor = hexOrDefault(theme.background, DEFAULT_THEME.background);
   slide.background = { color: bgColor };
 
-  renderSlideHeader(
-    slide,
-    pptx,
-    theme,
-    props.title,
-    "STRUCTURED DATA TABLE",
-    props.subtitle,
-  );
+  renderSlideHeader(slide, pptx, theme, props.title, "STRUCTURED DATA TABLE", props.subtitle);
 
   const headers = props.headers || [];
   const rows = props.rows || [];
@@ -1034,7 +920,7 @@ function buildTableSlide(slide, pptx, ctx, props) {
   const tableRows = [];
 
   if (headers.length > 0) {
-    const headerCells = headers.map((h) => ({
+    const headerCells = headers.map(h => ({
       text: h.toUpperCase(),
       options: {
         bold: true,
@@ -1060,7 +946,7 @@ function buildTableSlide(slide, pptx, ctx, props) {
       valign: "middle",
     };
 
-    const rowCells = rowData.map((val) => ({
+    const rowCells = rowData.map(val => ({
       text: String(val),
       options: cellOptions,
     }));
@@ -1091,14 +977,7 @@ function buildTableSlide(slide, pptx, ctx, props) {
     });
   }
 
-  renderSlideFooter(
-    slide,
-    pptx,
-    theme,
-    props.slideNumber,
-    props.totalSlides,
-    props.presentationTitle,
-  );
+  renderSlideFooter(slide, pptx, theme, props.slideNumber, props.totalSlides, props.presentationTitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -1111,14 +990,7 @@ async function buildImageSlide(slide, pptx, ctx, props) {
   const bgColor = hexOrDefault(theme.background, DEFAULT_THEME.background);
   slide.background = { color: bgColor };
 
-  renderSlideHeader(
-    slide,
-    pptx,
-    theme,
-    props.title,
-    "VISUAL HIGHLIGHT",
-    props.subtitle,
-  );
+  renderSlideHeader(slide, pptx, theme, props.title, "VISUAL HIGHLIGHT", props.subtitle);
 
   const leftW = 4.0;
   const rightX = GRID.marginLeft + leftW + 0.4;
@@ -1126,11 +998,7 @@ async function buildImageSlide(slide, pptx, ctx, props) {
   const contentY = GRID.contentTop;
   const contentH = GRID.contentH - 0.2;
 
-  const imageSource =
-    props.imageUrl ||
-    (props.imageSeed
-      ? `https://picsum.photos/seed/${encodeURIComponent(props.imageSeed)}/800/600`
-      : null);
+  const imageSource = props.imageUrl || (props.imageSeed ? `https://picsum.photos/seed/${encodeURIComponent(props.imageSeed)}/800/600` : null);
 
   if (imageSource) {
     try {
@@ -1149,10 +1017,7 @@ async function buildImageSlide(slide, pptx, ctx, props) {
         w: leftW,
         h: contentH,
         rectRadius: 0.06,
-        line: {
-          color: hexOrDefault(theme.accent, DEFAULT_THEME.accent),
-          width: 1.5,
-        },
+        line: { color: hexOrDefault(theme.accent, DEFAULT_THEME.accent), width: 1.5 },
         shadow: SHADOWS.card,
       });
     } catch (err) {
@@ -1187,12 +1052,7 @@ async function buildImageSlide(slide, pptx, ctx, props) {
   }
 
   if (props.points && props.points.length) {
-    const { fontSize, lineSpacing } = computeBulletLayout(
-      props.points,
-      contentH - (currentY - contentY) - 0.2,
-      11,
-      9,
-    );
+    const { fontSize, lineSpacing } = computeBulletLayout(props.points, contentH - (currentY - contentY) - 0.2, 11, 9);
     slide.addText(props.points.join("\n"), {
       x: rightX + 0.25,
       y: currentY,
@@ -1207,14 +1067,7 @@ async function buildImageSlide(slide, pptx, ctx, props) {
     });
   }
 
-  renderSlideFooter(
-    slide,
-    pptx,
-    theme,
-    props.slideNumber,
-    props.totalSlides,
-    props.presentationTitle,
-  );
+  renderSlideFooter(slide, pptx, theme, props.slideNumber, props.totalSlides, props.presentationTitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -1235,10 +1088,7 @@ function buildQuoteCallout(slide, pptx, ctx, props) {
   const cardY = props.title ? GRID.contentTop + 0.1 : 1.1;
   const cardH = 3.3;
   const cardBg = DEFAULT_THEME.surface;
-  const accentColor = hexOrDefault(
-    theme.accent || theme.primary,
-    DEFAULT_THEME.accent,
-  );
+  const accentColor = hexOrDefault(theme.accent || theme.primary, DEFAULT_THEME.accent);
 
   slide.addShape(pptx.ShapeType.roundRect, {
     x: cardX,
@@ -1270,13 +1120,7 @@ function buildQuoteCallout(slide, pptx, ctx, props) {
     fontFace: "Georgia",
   });
 
-  const quoteFontSize = calculateFontSize(
-    props.quote,
-    cardW - 1.2,
-    1.5,
-    18,
-    13,
-  );
+  const quoteFontSize = calculateFontSize(props.quote, cardW - 1.2, 1.5, 18, 13);
   slide.addText(props.quote, {
     x: cardX + 0.8,
     y: cardY + 0.5,
@@ -1293,11 +1137,7 @@ function buildQuoteCallout(slide, pptx, ctx, props) {
     slide.addShape(pptx.ShapeType.roundRect, {
       x: cardX + 0.8,
       y: cardY + 2.3,
-      w: Math.min(
-        6.5,
-        (props.author.length + (props.role ? props.role.length : 0)) * 0.11 +
-          0.6,
-      ),
+      w: Math.min(6.5, (props.author.length + (props.role ? props.role.length : 0)) * 0.11 + 0.6),
       h: 0.4,
       rectRadius: 0.05,
       fill: { color: hexOrDefault(theme.surfaceAlt, DEFAULT_THEME.surfaceAlt) },
@@ -1315,14 +1155,7 @@ function buildQuoteCallout(slide, pptx, ctx, props) {
     });
   }
 
-  renderSlideFooter(
-    slide,
-    pptx,
-    theme,
-    props.slideNumber,
-    props.totalSlides,
-    props.presentationTitle,
-  );
+  renderSlideFooter(slide, pptx, theme, props.slideNumber, props.totalSlides, props.presentationTitle);
 }
 
 // ---------------------------------------------------------------------------
