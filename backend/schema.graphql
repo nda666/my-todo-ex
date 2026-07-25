@@ -1,0 +1,146 @@
+# GraphQL Schema Reference
+
+```graphql
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum SubtaskStatus {
+  PENDING
+  COMPLETED
+}
+
+type Jabatan {
+  kode: Int!
+  nama: String!
+}
+
+type Divisi {
+  kode: Int!
+  nama: String!
+}
+
+type Pegawai {
+  kode: Int!
+  nama: String!
+  kodejabatan: Int!
+  kodedivisi: Int!
+  jabatan: Jabatan
+  divisi: Divisi
+}
+
+type User {
+  kodeku: String!
+  username: String!
+  pegawai: Pegawai
+}
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+type Task {
+  id: ID!
+  title: String!
+  description: String
+  status: TaskStatus!
+  createdAt: String!
+  updatedAt: String!
+  comments: [TaskComment!]!
+  meta: [TaskMeta!]!
+  subtasks: [Subtask!]!
+}
+
+type Subtask {
+  id: ID!
+  taskId: ID!
+  description: String!
+  status: SubtaskStatus!
+  sortOrder: Int!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateSubtaskInput {
+  taskId: ID!
+  description: String!
+  status: SubtaskStatus
+}
+
+input UpdateSubtaskInput {
+  description: String
+  status: SubtaskStatus
+}
+
+type TaskComment {
+  id: ID!
+  content: String!
+  userKode: String!
+  createdAt: String!
+}
+
+enum MetaType {
+  TEXT
+  LINK
+  COLOR
+  DATE
+  FILE
+  IMAGE
+}
+
+type TaskMeta {
+  id: ID!
+  key: String!
+  value: String
+  type: MetaType!
+  sortOrder: Int
+}
+
+input TaskMetaInput {
+  key: String!
+  value: String
+  type: MetaType!
+}
+
+input CreateTaskInput {
+  title: String!
+  description: String
+  status: TaskStatus
+  targetUserKode: String
+  projectId: ID
+  startDate: String
+  dueDate: String
+}
+
+input UpdateTaskInput {
+  title: String
+  description: String
+  status: TaskStatus
+  startDate: String
+  dueDate: String
+  meta: [TaskMetaInput!]
+}
+
+type Query {
+  me: User
+  tasks: [Task!]!
+  task(id: ID!): Task
+}
+
+type Mutation {
+  login(username: String!, password: String!): AuthPayload!
+  createTask(input: CreateTaskInput!): Task!
+  updateTask(id: ID!, input: UpdateTaskInput!): Task!
+  deleteTask(id: ID!): Boolean!
+  addTaskComment(taskId: ID!, content: String!): TaskComment!
+  setTaskMeta(taskId: ID!, key: String!, value: String): TaskMeta!
+  deleteTaskMeta(id: ID!): Boolean!
+  createSubtask(input: CreateSubtaskInput!): Subtask!
+  updateSubtask(id: ID!, input: UpdateSubtaskInput!): Subtask!
+  deleteSubtask(id: ID!): Boolean!
+  reorderSubtasks(taskId: ID!, orderedIds: [ID!]!): [Subtask!]!
+}
+```
