@@ -1,43 +1,43 @@
 // frontend/src/pages/PegawaiTasks.tsx
 import React, {
-    useCallback,
-    useMemo,
-    useState,
+  useCallback,
+  useMemo,
+  useState,
 } from 'react';
 
 import {
-    Card,
-    Collapse,
-    Empty,
-    Layout,
-    Segmented,
-    Spin,
-    Typography,
+  Card,
+  Collapse,
+  Empty,
+  Layout,
+  Segmented,
+  Spin,
+  Typography,
 } from 'antd';
 import {
-    useNavigate,
-    useParams,
+  useNavigate,
+  useParams,
 } from 'react-router-dom';
 
 import {
-    AppstoreOutlined,
-    TableOutlined,
+  AppstoreOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@apollo/client';
 import {
-    closestCenter,
-    DndContext,
-    DragEndEvent,
-    DragOverlay,
-    DragStartEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
 } from '@dnd-kit/core';
 import {
-    arrayMove,
-    SortableContext,
-    verticalListSortingStrategy,
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
 import DragTaskPreview from '../components/DragTaskPreview';
@@ -52,23 +52,23 @@ import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { useTeamHeader } from '../layouts/TeamLayout';
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import {
-    ADD_COMMENT,
-    DELETE_META,
-    DELETE_TASK,
-    REORDER_META,
-    REORDER_TASKS,
-    SET_META,
-    TOGGLE_REACTION,
-    UPDATE_TASK,
+  ADD_COMMENT,
+  DELETE_META,
+  DELETE_TASK,
+  REORDER_META,
+  REORDER_TASKS,
+  SET_META,
+  TOGGLE_REACTION,
+  UPDATE_TASK,
 } from '../lib/queries';
 import {
-    MetaDraft,
-    Task,
+  MetaDraft,
+  Task,
 } from '../types/task';
 import {
-    countTasksByTab,
-    filterTasksByTab,
-    StatusTabKey,
+  countTasksByTab,
+  filterTasksByTab,
+  StatusTabKey,
 } from '../utils/taskFilters';
 
 const { Header, Content } = Layout

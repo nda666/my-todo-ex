@@ -1,17 +1,17 @@
 import React from 'react';
 
 import {
-    Button,
-    Drawer,
-    Layout,
-    Typography,
+  Button,
+  Drawer,
+  Layout,
+  Typography,
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
 import {
-    LogoutOutlined,
-    MenuFoldOutlined,
-    MenuUnfoldOutlined,
+  LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
 
 import Sidebar from '../components/Sidebar';
@@ -131,7 +131,7 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
                     </div>
                 </Header>
 
-                <Content className="max-w-4xl w-full mx-auto p-3 sm:p-6">
+                <Content className=" w-full mx-auto p-3 sm:p-6">
                     {children}
                 </Content>
             </Layout>

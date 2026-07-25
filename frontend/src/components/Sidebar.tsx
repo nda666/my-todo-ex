@@ -65,29 +65,30 @@ export default function Sidebar({
             breakpoint="lg"
             collapsedWidth="0"
             width={280}
-            className="!bg-white dark:!bg-slate-900 !border-r !border-slate-200 dark:!border-slate-800 sticky top-0 h-screen z-50 flex flex-col overflow-y-auto"
+            className="!bg-white dark:!bg-slate-900 !border-r !border-slate-200 dark:!border-slate-800 sticky top-0 h-screen z-50 flex flex-col "
         >
-            <div className="flex flex-col h-full justify-between p-4">
-                <div className="flex flex-col gap-6">
-                    <div className="flex items-center gap-3 px-2 py-2">
-                        <div
-                            onClick={() => navigate('/')}
-                            className="!bg-blue-600 !text-white rounded-lg px-2.5 py-1.5 flex items-center justify-center font-bold text-lg shadow-sm cursor-pointer"
-                        >
-                            DT
-                        </div>
-                        {!collapsed && (
-                            <div>
-                                <Title level={4} className="!mb-0 font-bold tracking-tight !text-slate-800 dark:!text-slate-100">
-                                    Doran Todo
-                                </Title>
-                                <Text className="text-xs !text-slate-500 dark:!text-slate-400">
-                                    Workspace Anda
-                                </Text>
-                            </div>
-                        )}
-                    </div>
 
+            <div className="flex flex-col h-full">
+                <div className="flex items-center gap-3 h-16 px-6">
+                    <div
+                        onClick={() => navigate('/')}
+                        className="!bg-blue-600 !text-white rounded-lg px-2.5 py-1.5 flex items-center justify-center font-bold text-lg shadow-sm cursor-pointer"
+                    >
+                        DT
+                    </div>
+                    {!collapsed && (
+                        <div>
+                            <Title level={4} className="!mb-0 font-bold tracking-tight !text-slate-800 dark:!text-slate-100">
+                                Doran Todo
+                            </Title>
+                            <Text className="text-xs !text-slate-500 dark:!text-slate-400">
+                                Workspace Anda
+                            </Text>
+                        </div>
+                    )}
+                </div>
+
+                <div className='overflow-y-auto flex-1 px-2'>
                     {!collapsed && (
                         <div
                             onClick={() => navigate('/settings', { state: { backgroundLocation: location } })}
@@ -115,20 +116,23 @@ export default function Sidebar({
                         </div>
                     )}
 
-                    {!collapsed && onCreateTask && (
-                        <Button
-                            type="primary"
-                            size="large"
-                            icon={<PlusOutlined />}
-                            onClick={onCreateTask}
-                            className="w-full rounded-xl font-medium shadow-sm"
-                        >
-                            Task Baru
-                        </Button>
-                    )}
+
+
 
                     {!collapsed && (
+
                         <div className="flex flex-col gap-2">
+                            {onCreateTask && (
+                                <Button
+                                    type="primary"
+                                    size="large"
+                                    icon={<PlusOutlined />}
+                                    onClick={onCreateTask}
+                                    className="w-full rounded-xl font-medium shadow-sm"
+                                >
+                                    Task Baru
+                                </Button>
+                            )}
                             <Button
                                 icon={<TeamOutlined />}
                                 onClick={() => currentDivisiKode && navigate(`/teams/${currentDivisiKode}/team-board`)}
@@ -168,7 +172,6 @@ export default function Sidebar({
                         </div>
                     )}
                 </div>
-
                 {!collapsed && (
                     <div className="flex flex-col gap-4 pt-4 !border-t !border-slate-100 dark:!border-slate-800">
                         <div className="flex justify-center">

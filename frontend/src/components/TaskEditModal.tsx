@@ -1,25 +1,25 @@
 import React, {
-    useEffect,
-    useState,
+  useEffect,
+  useState,
 } from 'react';
 
 import {
-    Button,
-    Form,
-    Input,
-    Modal,
-    Select,
-    Typography,
+  Button,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Typography,
 } from 'antd';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
 import {
-    MetaDraft,
-    Task,
-    TaskStatus,
+  MetaDraft,
+  Task,
+  TaskStatus,
 } from '../types/task';
-import TaskMetaEditor from './TaskMetaEditor';
 import SubtaskList from './SubtaskList';
+import TaskMetaEditor from './TaskMetaEditor';
 
 const { Title } = Typography
 const { TextArea } = Input

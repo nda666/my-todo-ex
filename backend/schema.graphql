@@ -7,11 +7,6 @@ enum TaskStatus {
   COMPLETED
 }
 
-enum SubtaskStatus {
-  PENDING
-  COMPLETED
-}
-
 type Jabatan {
   kode: Int!
   nama: String!
@@ -51,28 +46,6 @@ type Task {
   updatedAt: String!
   comments: [TaskComment!]!
   meta: [TaskMeta!]!
-  subtasks: [Subtask!]!
-}
-
-type Subtask {
-  id: ID!
-  taskId: ID!
-  description: String!
-  status: SubtaskStatus!
-  sortOrder: Int!
-  createdAt: String!
-  updatedAt: String!
-}
-
-input CreateSubtaskInput {
-  taskId: ID!
-  description: String!
-  status: SubtaskStatus
-}
-
-input UpdateSubtaskInput {
-  description: String
-  status: SubtaskStatus
 }
 
 type TaskComment {
@@ -82,46 +55,22 @@ type TaskComment {
   createdAt: String!
 }
 
-enum MetaType {
-  TEXT
-  LINK
-  COLOR
-  DATE
-  FILE
-  IMAGE
-}
-
 type TaskMeta {
   id: ID!
   key: String!
   value: String
-  type: MetaType!
-  sortOrder: Int
-}
-
-input TaskMetaInput {
-  key: String!
-  value: String
-  type: MetaType!
 }
 
 input CreateTaskInput {
   title: String!
   description: String
   status: TaskStatus
-  targetUserKode: String
-  projectId: ID
-  startDate: String
-  dueDate: String
 }
 
 input UpdateTaskInput {
   title: String
   description: String
   status: TaskStatus
-  startDate: String
-  dueDate: String
-  meta: [TaskMetaInput!]
 }
 
 type Query {
@@ -138,9 +87,5 @@ type Mutation {
   addTaskComment(taskId: ID!, content: String!): TaskComment!
   setTaskMeta(taskId: ID!, key: String!, value: String): TaskMeta!
   deleteTaskMeta(id: ID!): Boolean!
-  createSubtask(input: CreateSubtaskInput!): Subtask!
-  updateSubtask(id: ID!, input: UpdateSubtaskInput!): Subtask!
-  deleteSubtask(id: ID!): Boolean!
-  reorderSubtasks(taskId: ID!, orderedIds: [ID!]!): [Subtask!]!
 }
 ```

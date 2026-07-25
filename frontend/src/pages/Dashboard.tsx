@@ -224,7 +224,7 @@ export default function Dashboard() {
     )
   }
 
-  const canManageTask = (task: Task) => task.userKode === me?.kodeku || task.createdBy === me?.kodeku
+  const canManageTask = (task: Task) => task?.userKode === me?.kodeku || task?.createdBy === me?.kodeku
 
   const stats = {
     total: teamTaskCounts[me?.kodeku || ''] || 0,
