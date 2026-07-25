@@ -79,6 +79,7 @@ import ProjectFilesView from '../components/ProjectFilesView';
 import ProjectProgressCard from '../components/ProjectProgressCard';
 import ProjectTimelineView from '../components/ProjectTimelineView';
 import SortableTaskCard from '../components/SortableTaskCard';
+import TaskAssigneePieChart from '../components/TaskAssigneePieChart';
 import TaskTable from '../components/TaskTable';
 import { useAuth } from '../contexts/AuthContext';
 import { useTeamHeader } from '../layouts/TeamLayout';
@@ -104,7 +105,7 @@ import {
     TOGGLE_REACTION,
     UPDATE_TASK,
 } from '../lib/queries';
-import { ProjectStage } from '../types/project';
+import { ProjectStage, STAGE_COLORS, STAGE_LABELS } from '../types/project';
 import {
     Colleague,
     Task,
@@ -113,26 +114,6 @@ import {
 const { Title, Text, Paragraph } = Typography;
 
 const PRIMARY_STAGES: ProjectStage[] = ['PLANNING', 'IN_PROGRESS', 'REVIEW', 'DONE'];
-
-const STAGE_LABELS: Record<ProjectStage, string> = {
-    PLANNING: 'Planning',
-    IN_PROGRESS: 'In Progress',
-    REVIEW: 'Review',
-    REJECTED: 'Rejected',
-    ON_HOLD: 'On Hold',
-    CANCELLED: 'Cancelled',
-    DONE: 'Done',
-};
-
-const STAGE_COLORS: Record<ProjectStage, string> = {
-    PLANNING: 'blue',
-    IN_PROGRESS: 'processing',
-    REVIEW: 'warning',
-    REJECTED: 'error',
-    ON_HOLD: 'default',
-    CANCELLED: 'volcano',
-    DONE: 'success',
-};
 
 export default function ProjectDetail() {
     const { me } = useAuth();
@@ -757,14 +738,21 @@ export default function ProjectDetail() {
                 </div>
             </div>
 
-            {/* --- Progress Summary Card (Point 4) --- */}
-            <ProjectProgressCard
-                totalTasksCount={totalTasksCount}
-                completedTasksCount={completedTasksCount}
-                inProgressTasksCount={inProgressTasksCount}
-                pendingTasksCount={pendingTasksCount}
-                progressPercentage={progressPercentage}
-            />
+            {/* --- Dashboard Widgets --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <ProjectProgressCard
+                    totalTasksCount={totalTasksCount}
+                    completedTasksCount={completedTasksCount}
+                    inProgressTasksCount={inProgressTasksCount}
+                    pendingTasksCount={pendingTasksCount}
+                    progressPercentage={progressPercentage}
+                />
+                <TaskAssigneePieChart
+                    tasks={tasks}
+                    members={allMembers}
+                    divisions={divisions}
+                />
+            </div>
 
             {/* --- View Mode & Task Controls --- */}
             <div className="flex flex-col gap-4">
