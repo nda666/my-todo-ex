@@ -1,4 +1,5 @@
-import { LocalStorageWrapper, persistCache } from "apollo3-cache-persist";
+import { persistCache } from "apollo3-cache-persist";
+import type { PersistentStorage } from "apollo3-cache-persist";
 
 import {
   ApolloClient,
@@ -10,6 +11,83 @@ import {
 import { onError } from "@apollo/client/link/error";
 
 import { clearToken, getToken } from "./auth";
+
+export class IndexedDBWrapper implements PersistentStorage<string | null> {
+  private dbName: string;
+  private storeName: string;
+  private dbPromise: Promise<IDBDatabase> | null = null;
+
+  constructor(dbName = "apollo-cache-db", storeName = "apollo-cache") {
+    this.dbName = dbName;
+    this.storeName = storeName;
+  }
+
+  private getDB(): Promise<IDBDatabase> {
+    if (!this.dbPromise) {
+      this.dbPromise = new Promise((resolve, reject) => {
+        if (typeof window === "undefined" || !window.indexedDB) {
+          reject(new Error("IndexedDB is not supported in this environment"));
+          return;
+        }
+        const request = window.indexedDB.open(this.dbName, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(this.storeName)) {
+            db.createObjectStore(this.storeName);
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    return this.dbPromise;
+  }
+
+  async getItem(key: string): Promise<string | null> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, "readonly");
+        const store = tx.objectStore(this.storeName);
+        const req = store.get(key);
+        req.onsuccess = () => resolve((req.result as string) ?? null);
+        req.onerror = () => reject(req.error);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  async setItem(key: string, value: string | null): Promise<void> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, "readwrite");
+        const store = tx.objectStore(this.storeName);
+        const req = store.put(value, key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  async removeItem(key: string): Promise<void> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, "readwrite");
+        const store = tx.objectStore(this.storeName);
+        const req = store.delete(key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch {
+      // ignore
+    }
+  }
+}
 
 const httpLink = new HttpLink({ uri: "/query" });
 
@@ -39,7 +117,26 @@ export const cache = new InMemoryCache({
     Task: { keyFields: ["id"] },
     TaskComment: { keyFields: ["id"] },
     TaskMeta: { keyFields: ["id"] },
-    Project: { keyFields: ["id"] },
+    Project: {
+      keyFields: ["id"],
+      fields: {
+        stage: {
+          merge(_existing, incoming) {
+            return incoming;
+          },
+        },
+        stageVersion: {
+          merge(_existing, incoming) {
+            return incoming;
+          },
+        },
+        stageHistory: {
+          merge(_existing, incoming) {
+            return incoming;
+          },
+        },
+      },
+    },
     Colleague: { keyFields: ["kodeku"] },
   },
 });
@@ -56,12 +153,12 @@ export const apolloClient = new ApolloClient({
   },
 });
 
-// Persistent cache ke localStorage - saat reload halaman, data lama langsung muncul
-// dari cache sebelum network response datang (perceived performance jauh lebih cepat).
+// Persistent cache ke IndexedDB - saat reload halaman, data lama langsung muncul
+// dari IndexedDB cache sebelum network response datang.
 export async function initPersistedCache() {
   await persistCache({
     cache,
-    storage: new LocalStorageWrapper(window.localStorage),
-    maxSize: 5 * 1024 * 1024, // 5MB
+    storage: new IndexedDBWrapper(),
+    maxSize: false,
   });
 }

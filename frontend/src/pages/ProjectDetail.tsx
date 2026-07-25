@@ -249,6 +249,24 @@ export default function ProjectDetail() {
                     expectedVersion: project.stageVersion,
                     force: forceTransition,
                 },
+                update(cache, { data }) {
+                    if (data?.advanceProjectStage) {
+                        cache.modify({
+                            id: cache.identify({ __typename: 'Project', id: projectId }),
+                            fields: {
+                                stage() {
+                                    return data.advanceProjectStage.stage;
+                                },
+                                stageVersion() {
+                                    return data.advanceProjectStage.stageVersion;
+                                },
+                                stageHistory() {
+                                    return data.advanceProjectStage.stageHistory;
+                                },
+                            },
+                        });
+                    }
+                },
             });
             message.success(`Berhasil mengubah stage project ke ${STAGE_LABELS[targetStage]}`);
             setTransitionModalVisible(false);
@@ -559,8 +577,8 @@ export default function ProjectDetail() {
                         description={
                             currentStage === 'REJECTED'
                                 ? 'Project memerlukan penyesuaian atau revisi sebelum dapat dilanjutkan.'
-                                ? currentStage === 'CANCELLED'
-                                : 'Project telah dibatalkan.'
+                                : currentStage === 'CANCELLED'
+                                ? 'Project telah dibatalkan.'
                                 : 'Project sedang ditahan sementara.'
                         }
                     />

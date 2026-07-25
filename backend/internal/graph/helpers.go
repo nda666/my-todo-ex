@@ -245,8 +245,8 @@ func formatDatePtr(t *time.Time) interface{} {
 func formatProjectStageHistory(sh models.ProjectStageHistory) map[string]interface{} {
 	return map[string]interface{}{
 		"id":        strconv.FormatUint(uint64(sh.ID), 10),
-		"fromStage": string(sh.FromStage),
-		"toStage":   string(sh.ToStage),
+		"fromStage": sh.FromStage,
+		"toStage":   sh.ToStage,
 		"changedBy": sh.ChangedBy,
 		"changedAt": formatTime(sh.ChangedAt),
 		"note":      sh.Note,
@@ -292,7 +292,7 @@ func formatProject(project models.Project) map[string]interface{} {
 		"description":      project.Description,
 		"ownerDivisiKode":  project.OwnerDivisiKode,
 		"status":           string(project.Status),
-		"stage":            string(stage),
+		"stage":            stage,
 		"stageVersion":     stageVersion,
 		"createdAt":        formatTime(project.CreatedAt),
 		"divisions":        divisions,

@@ -95,6 +95,8 @@ func buildTypes() *Types {
 			"status":      &graphql.InputObjectFieldConfig{Type: subtaskStatusEnum},
 		},
 	})
+
+	jabatanType := graphql.NewObject(graphql.ObjectConfig{
 		Name: "Jabatan",
 		Fields: graphql.Fields{
 			"kode": &graphql.Field{Type: graphql.NewNonNull(graphql.Int)},
