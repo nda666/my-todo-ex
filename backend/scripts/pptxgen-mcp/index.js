@@ -1,4 +1,4 @@
-// backend/mcp/pptxgen-mcp/index.js — full file
+// backend/scripts/pptxgen-mcp/index.js
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const {
   StdioServerTransport,
@@ -8,17 +8,18 @@ const PptxGenJS = require("pptxgenjs");
 const crypto = require("crypto");
 const https = require("https");
 const http = require("http");
-const { LAYOUT_BUILDERS } = require("./layouts");
+const { LAYOUT_BUILDERS, DEFAULT_THEME } = require("./layouts");
 
-const server = new McpServer({ name: "pptxgen-mcp", version: "2.0.0" });
+const server = new McpServer({ name: "pptxgen-mcp", version: "2.1.0" });
 const presentations = new Map();
 
 function getPresentation(id) {
   const p = presentations.get(id);
-  if (!p)
+  if (!p) {
     throw new Error(
       `presentationId '${id}' tidak ditemukan. Panggil create_presentation dulu.`,
     );
+  }
   return p;
 }
 
@@ -33,7 +34,7 @@ function fetchUrl(url, redirectCount = 0) {
 
     const req = lib.get(
       url,
-      { headers: { "User-Agent": "pptxgen-mcp/1.0" }, timeout: 10000 },
+      { headers: { "User-Agent": "pptxgen-mcp/2.1" }, timeout: 10000 },
       (res) => {
         if (
           res.statusCode >= 300 &&
@@ -113,7 +114,7 @@ server.tool(
   "Membuat presentasi PowerPoint baru + set palet warna (theme) yang WAJIB dipakai konsisten di " +
     "SEMUA slide berikutnya (parameter 'theme'). Background slide TIDAK berubah-ubah antar slide - " +
     "hanya 2 mode: 'primary' (dipakai title_cover/section_header/closing) dan 'background' (dipakai " +
-    "stat_cards/chart_focus/content_columns) - keduanya sudah otomatis dijamin kontras dengan teks di atasnya. " +
+    "stat_cards/chart_focus/content_columns/table_slide/image_slide) - keduanya sudah otomatis dijamin kontras dengan teks di atasnya. " +
     "WAJIB dipanggil pertama kali.",
   {
     title: z.string(),
@@ -122,32 +123,30 @@ server.tool(
       .object({
         primary: z
           .string()
+          .optional()
           .describe(
-            "hex tanpa # - warna solid untuk slide judul/divider/penutup (boleh gelap atau terang)",
+            "hex tanpa # - warna solid untuk slide judul/divider/penutup",
           ),
         accent: z
           .string()
+          .optional()
           .describe("hex tanpa # - warna aksen kontras untuk garis/highlight"),
         background: z
           .string()
-          .describe(
-            "hex tanpa # - warna latar slide konten (stat_cards/chart_focus/content_columns), SELALU dipakai sama di semua slide konten",
-          ),
+          .optional()
+          .describe("hex tanpa # - warna latar slide konten"),
         textColor: z
           .string()
-          .describe(
-            "hex tanpa # - warna teks di atas 'background' KALAU background terang; diabaikan otomatis kalau background ternyata gelap (sistem pilih putih otomatis)",
-          ),
+          .optional()
+          .describe("hex tanpa # - warna teks di atas background terang"),
         mutedColor: z
           .string()
-          .describe(
-            "hex tanpa # - warna teks sekunder di atas 'background' terang",
-          ),
+          .optional()
+          .describe("hex tanpa # - warna teks sekunder"),
         fontFace: z.string().optional().describe("default 'Calibri'"),
       })
-      .describe(
-        "Palet 2-3 warna KONSISTEN untuk SELURUH presentasi - JANGAN ganti warna primary/background antar slide",
-      ),
+      .optional()
+      .describe("Palet warna konsisten untuk seluruh presentasi"),
   },
   async ({ title, author, theme }) => {
     const pptx = new PptxGenJS();
@@ -155,11 +154,17 @@ server.tool(
     pptx.layout = "WIDESCREEN";
     pptx.title = title;
     pptx.author = author || "Dora - Doran Todo Assistant";
+
+    const mergedTheme = { ...DEFAULT_THEME, ...(theme || {}) };
     const id = crypto.randomUUID();
-    presentations.set(id, { pptx, slideCount: 0, theme });
+    presentations.set(id, { pptx, slideCount: 0, theme: mergedTheme });
+
     return {
       content: [
-        { type: "text", text: JSON.stringify({ presentationId: id, theme }) },
+        {
+          type: "text",
+          text: JSON.stringify({ presentationId: id, theme: mergedTheme }),
+        },
       ],
     };
   },
@@ -175,7 +180,7 @@ const layoutSchemas = {
     imageSeed: z
       .string()
       .optional()
-      .describe("kata kunci untuk foto background, mis. 'business-team'"),
+      .describe("kata kunci untuk foto background/frame, mis. 'business-team'"),
   }),
   section_header: z.object({
     title: z.string(),
@@ -197,7 +202,7 @@ const layoutSchemas = {
             .describe("hex tanpa #, default theme.primary"),
         }),
       )
-      .min(2)
+      .min(1)
       .max(4),
   }),
   chart_focus: z.object({
@@ -225,6 +230,27 @@ const layoutSchemas = {
       .min(1)
       .max(3),
   }),
+  table_slide: z.object({
+    title: z.string(),
+    subtitle: z.string().optional(),
+    headers: z.array(z.string()).describe("Daftar nama kolom tabel"),
+    rows: z.array(z.array(z.string())).describe("Baris data sel-sel tabel"),
+    footnote: z.string().optional(),
+  }),
+  image_slide: z.object({
+    title: z.string(),
+    subtitle: z.string().optional(),
+    imageUrl: z.string().optional(),
+    imageSeed: z.string().optional(),
+    description: z.string().optional(),
+    points: z.array(z.string()).optional(),
+  }),
+  quote_callout: z.object({
+    title: z.string().optional(),
+    quote: z.string().describe("Teks kutipan/callout"),
+    author: z.string().optional().describe("Nama pembuat kutipan"),
+    role: z.string().optional().describe("Jabatan / peran"),
+  }),
   closing: z.object({
     title: z.string().optional(),
     subtitle: z.string().optional(),
@@ -237,11 +263,14 @@ server.tool(
   "build_slide_from_layout",
   "Membuat SATU slide memakai TEMPLATE LAYOUT siap pakai (posisi/grid/spacing sudah didesain profesional, " +
     "kamu HANYA mengisi konten). Pilih 'layout' paling cocok:\n" +
-    "- title_cover: slide judul/cover dengan foto background\n" +
+    "- title_cover: slide judul/cover dengan foto accent/frame\n" +
     "- section_header: divider antar-bagian, panel warna solid + ikon besar\n" +
-    "- stat_cards: 2-4 kartu statistik sejajar (angka besar + label + ikon)\n" +
+    "- stat_cards: 1-4 kartu statistik sejajar (angka besar + label + ikon)\n" +
     "- chart_focus: chart besar di kiri + ringkasan poin di kanan\n" +
     "- content_columns: 1-3 kolom teks berjudul (untuk daftar task/kendala/rencana)\n" +
+    "- table_slide: tabel data dengan header & baris zebra-stripe\n" +
+    "- image_slide: gambar/foto di kiri + deskripsi/poin di kanan\n" +
+    "- quote_callout: kartu kutipan/takeaway dengan bingkai aksen\n" +
     "- closing: slide penutup\n" +
     "JANGAN PERNAH mengirim x/y/w/h manual - layout ini yang mengatur semua posisi otomatis.",
   {
@@ -271,12 +300,20 @@ server.tool(
 
     const slide = p.pptx.addSlide();
     const builder = LAYOUT_BUILDERS[layout];
+    const slideNumber = p.slideCount + 1;
+
     try {
       await builder(
         slide,
         p.pptx,
         { fetchAsDataUri },
-        { ...parsed.data, theme: p.theme },
+        {
+          ...parsed.data,
+          theme: p.theme,
+          slideNumber,
+          totalSlides: p.slideCount,
+          presentationTitle: p.pptx.title,
+        },
       );
     } catch (err) {
       console.error(
