@@ -74,6 +74,10 @@ import {
 
 import CreateTaskModal from '../components/CreateTaskModal';
 import DragTaskPreview from '../components/DragTaskPreview';
+import ProjectActivityTrail from '../components/ProjectActivityTrail';
+import ProjectFilesView from '../components/ProjectFilesView';
+import ProjectProgressCard from '../components/ProjectProgressCard';
+import ProjectTimelineView from '../components/ProjectTimelineView';
 import SortableTaskCard from '../components/SortableTaskCard';
 import TaskTable from '../components/TaskTable';
 import { useAuth } from '../contexts/AuthContext';
@@ -754,22 +758,13 @@ export default function ProjectDetail() {
             </div>
 
             {/* --- Progress Summary Card (Point 4) --- */}
-            <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6 shadow-sm">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                    <div>
-                        <Title level={5} className="!mb-1 !text-slate-800 dark:!text-slate-200">Progress Project</Title>
-                        <Text className="text-xs text-slate-500">
-                            {completedTasksCount} dari {totalTasksCount} task selesai ({progressPercentage}%)
-                        </Text>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                        <Tag color="blue" className="px-3 py-1 text-xs rounded-full">Pending: {pendingTasksCount}</Tag>
-                        <Tag color="processing" className="px-3 py-1 text-xs rounded-full">In Progress: {inProgressTasksCount}</Tag>
-                        <Tag color="success" className="px-3 py-1 text-xs rounded-full">Selesai: {completedTasksCount}</Tag>
-                    </div>
-                </div>
-                <Progress percent={progressPercentage} status="active" strokeColor={{ '0%': '#10B981', '100%': '#3B82F6' }} />
-            </div>
+            <ProjectProgressCard
+                totalTasksCount={totalTasksCount}
+                completedTasksCount={completedTasksCount}
+                inProgressTasksCount={inProgressTasksCount}
+                pendingTasksCount={pendingTasksCount}
+                progressPercentage={progressPercentage}
+            />
 
             {/* --- View Mode & Task Controls --- */}
             <div className="flex flex-col gap-4">
@@ -825,117 +820,11 @@ export default function ProjectDetail() {
 
             {/* --- View Mode Content --- */}
             {viewMode === 'activity' ? (
-                /* Point 5: Activity Log / Audit Trail */
-                <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6">
-                    <Title level={5} className="!mb-4 !text-slate-800 dark:!text-slate-200">Riwayat Perubahan & Audit Trail</Title>
-                    {project.stageHistory && project.stageHistory.length > 0 ? (
-                        <Timeline
-                            items={project.stageHistory.map((sh: any) => ({
-                                children: (
-                                    <div className="mb-2">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <Tag color={STAGE_COLORS[sh.fromStage as ProjectStage]}>{STAGE_LABELS[sh.fromStage as ProjectStage] || sh.fromStage}</Tag>
-                                            <span>→</span>
-                                            <Tag color={STAGE_COLORS[sh.toStage as ProjectStage]}>{STAGE_LABELS[sh.toStage as ProjectStage] || sh.toStage}</Tag>
-                                            <Text className="text-xs text-slate-400">{sh.changedAt}</Text>
-                                        </div>
-                                        <Text className="text-xs text-slate-500 block mt-1">
-                                            Oleh: <span className="font-medium text-slate-700 dark:text-slate-300">{sh.changedBy}</span>
-                                            {sh.note && ` — Catatan: "${sh.note}"`}
-                                        </Text>
-                                    </div>
-                                ),
-                            }))}
-                        />
-                    ) : (
-                        <Empty description="Belum ada riwayat perubahan stage." />
-                    )}
-                </div>
+                <ProjectActivityTrail stageHistory={project.stageHistory} />
             ) : viewMode === 'files' ? (
-                /* Point 6: Central Files & Attachments Repository */
-                <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6">
-                    <Title level={5} className="!mb-4 !text-slate-800 dark:!text-slate-200">Berkas & Lampiran Project</Title>
-                    {projectFiles.length === 0 ? (
-                        <Empty description="Belum ada berkas lampiran di project ini." />
-                    ) : (
-                        <Table
-                            dataSource={projectFiles}
-                            rowKey="id"
-                            pagination={{ pageSize: 10 }}
-                            columns={[
-                                {
-                                    title: 'Nama Berkas',
-                                    dataIndex: 'fileName',
-                                    key: 'fileName',
-                                    render: (text, record) => (
-                                        <div className="flex items-center gap-2">
-                                            <FileOutlined className="text-blue-500" />
-                                            <span className="font-medium text-slate-800 dark:text-slate-200">{text}</span>
-                                        </div>
-                                    ),
-                                },
-                                {
-                                    title: 'Task Sumber',
-                                    dataIndex: 'sourceTask',
-                                    key: 'sourceTask',
-                                    render: (text) => <Tag color="default">{text}</Tag>,
-                                },
-                                {
-                                    title: 'Aksi',
-                                    key: 'action',
-                                    render: (_, record) => (
-                                        <Button
-                                            type="primary"
-                                            size="small"
-                                            icon={<DownloadOutlined />}
-                                            onClick={() => window.open(record.url, '_blank')}
-                                        >
-                                            Lihat / Unduh
-                                        </Button>
-                                    ),
-                                },
-                            ]}
-                        />
-                    )}
-                </div>
+                <ProjectFilesView files={projectFiles} />
             ) : viewMode === 'timeline' ? (
-                /* Point 2: Gantt / Timeline View */
-                <div className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl p-6">
-                    <Title level={5} className="!mb-4 !text-slate-800 dark:!text-slate-200">Timeline & Milestone Project</Title>
-                    {filteredTasks.length === 0 ? (
-                        <Empty description="Tidak ada task untuk ditampilkan di timeline." />
-                    ) : (
-                        <div className="flex flex-col gap-4">
-                            {filteredTasks.map((t) => {
-                                const assignee = allMembers.find((m) => m.kodeku === t.userKode);
-                                return (
-                                    <div key={t.id} className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                <span className="font-semibold text-slate-800 dark:text-slate-100">{t.title}</span>
-                                                <Tag color={t.status === 'COMPLETED' ? 'success' : t.status === 'IN_PROGRESS' ? 'processing' : 'default'}>
-                                                    {t.status}
-                                                </Tag>
-                                                {assignee && (
-                                                    <Tag icon={<UserOutlined />} color="blue">
-                                                        {assignee.nama}
-                                                    </Tag>
-                                                )}
-                                            </div>
-                                            {t.description && <Text className="text-xs text-slate-500 block truncate max-w-xl">{t.description}</Text>}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-xs text-slate-500 flex items-center gap-1">
-                                                <CalendarOutlined />
-                                                <span>Dibuat: {new Date(t.createdAt).toLocaleDateString('id-ID')}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+                <ProjectTimelineView tasks={filteredTasks} members={allMembers} />
             ) : tasksLoading && !tasksData ? (
                 <div className="flex justify-center py-12"><Spin /></div>
             ) : filteredTasks.length === 0 ? (
@@ -1028,7 +917,6 @@ export default function ProjectDetail() {
                     )}
                 </div>
             )}
-            </div>
 
             {/* --- Create Task Modal --- */}
             <CreateTaskModal
