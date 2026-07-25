@@ -17,8 +17,9 @@ type Task struct {
 	Description string        `gorm:"type:text"`
 	Status      TaskStatus    `gorm:"size:20;default:pending;not null"`
 	UserKode    string        `gorm:"column:user_kode;size:50;not null;index;collate:utf8mb4_general_ci"`
+	DivisiKode  *int          `gorm:"column:divisi_kode;index"`
 	CreatedBy   string        `gorm:"column:created_by;size:50;not null;index;collate:utf8mb4_general_ci"`
-	SortOrder   int           `gorm:"column:sort_order;default:0;index"` // <-- baru, dipakai drag-and-drop
+	SortOrder   int           `gorm:"column:sort_order;default:0;index"`
 	StartDate   *time.Time    `gorm:"column:start_date"`
 	DueDate     *time.Time    `gorm:"column:due_date"`
 	CompletedAt *time.Time    `gorm:"column:completed_at"`

@@ -94,11 +94,13 @@ func mutationFields(repos *repository.Repositories, authService *auth.Service, a
 					}
 				}
 
+				divisiKode := claims.KodeDivisi
 				task := models.Task{
 					Title:       input["title"].(string),
 					Description: strVal(input["description"]),
 					Status:      models.TaskStatusPending,
 					UserKode:    targetUserKode,
+					DivisiKode:  &divisiKode,
 					CreatedBy:   claims.Kodeku,
 				}
 				if status, ok := input["status"]; ok && status != nil {
@@ -731,11 +733,13 @@ func mutationFields(repos *repository.Repositories, authService *auth.Service, a
 					targetUserKode = v
 				}
 
+				divisiKode := actor.DivisiKode
 				task := models.Task{
 					Title:       p.Args["title"].(string),
 					Description: strVal(p.Args["description"]),
 					Status:      models.TaskStatusPending,
 					UserKode:    targetUserKode,
+					DivisiKode:  &divisiKode,
 					CreatedBy:   claims.Kodeku,
 					StartDate:   parseDatePtr(p.Args["startDate"]),
 					DueDate:     parseDatePtr(p.Args["dueDate"]),
@@ -1027,6 +1031,82 @@ func mutationFields(repos *repository.Repositories, authService *auth.Service, a
 					formatted[i] = formatSubtask(s)
 				}
 				return formatted, nil
+			},
+		},
+
+		"advanceProjectStage": &graphql.Field{
+			Type: t.ProjectType,
+			Args: graphql.FieldConfigArgument{
+				"projectId":       &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+				"toStage":         &graphql.ArgumentConfig{Type: graphql.NewNonNull(t.ProjectStageEnum)},
+				"note":            &graphql.ArgumentConfig{Type: graphql.String},
+				"expectedVersion": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.Int)},
+				"force":           &graphql.ArgumentConfig{Type: graphql.Boolean},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				claims, err := auth.RequireUser(p.Context)
+				if err != nil {
+					return nil, err
+				}
+				projectID, err := parseID(p.Args["projectId"])
+				if err != nil {
+					return nil, err
+				}
+				isLeader, err := repos.Project.IsProjectLeader(p.Context, projectID, claims.Kodeku)
+				if err != nil || !isLeader {
+					return nil, errors.New("hanya project leader yang dapat mengubah stage project")
+				}
+
+				toStage := p.Args["toStage"].(models.ProjectStage)
+				if toStage == models.ProjectStageDone {
+					force, _ := p.Args["force"].(bool)
+					if !force {
+						incompleteCount, err := repos.Project.CountIncompleteTasks(p.Context, projectID)
+						if err == nil && incompleteCount > 0 {
+							return nil, fmt.Errorf("masih ada %d task yang belum selesai. Gunakan konfirmasi eksplisit (force: true) untuk menyelesaikan project.", incompleteCount)
+						}
+					}
+				}
+
+				note := strVal(p.Args["note"])
+				expectedVersion := p.Args["expectedVersion"].(int)
+
+				updated, err := repos.Project.UpdateStage(p.Context, projectID, toStage, note, claims.Kodeku, expectedVersion)
+				if err != nil {
+					return nil, err
+				}
+				divProgress, _ := repos.Project.GetDivisionProgress(p.Context, projectID)
+				return formatProjectWithDetails(*updated, divProgress), nil
+			},
+		},
+
+		"reopenProject": &graphql.Field{
+			Type: t.ProjectType,
+			Args: graphql.FieldConfigArgument{
+				"projectId":       &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+				"expectedVersion": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.Int)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				claims, err := auth.RequireUser(p.Context)
+				if err != nil {
+					return nil, err
+				}
+				projectID, err := parseID(p.Args["projectId"])
+				if err != nil {
+					return nil, err
+				}
+				isLeader, err := repos.Project.IsProjectLeader(p.Context, projectID, claims.Kodeku)
+				if err != nil || !isLeader {
+					return nil, errors.New("hanya project leader yang dapat meng-reopen project")
+				}
+
+				expectedVersion := p.Args["expectedVersion"].(int)
+				updated, err := repos.Project.ReopenProject(p.Context, projectID, expectedVersion, claims.Kodeku)
+				if err != nil {
+					return nil, err
+				}
+				divProgress, _ := repos.Project.GetDivisionProgress(p.Context, projectID)
+				return formatProjectWithDetails(*updated, divProgress), nil
 			},
 		},
 	}

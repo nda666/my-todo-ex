@@ -41,6 +41,7 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&models.ProjectDivision{},
 		&models.ProjectLeader{},
 		&models.ProjectTask{},
+		&models.ProjectStageHistory{},
 	}
 
 	for _, m := range tablesWithCharset {

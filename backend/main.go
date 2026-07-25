@@ -65,6 +65,7 @@ func main() {
 
 	http.Handle("/api/upload-avatar", authMiddleware(authService, httpapi.UploadAvatarHandler(repos)))
 	http.Handle("/api/reports/team-summary", authMiddleware(authService, httpapi.GenerateReportHandler(repos, aiClient, agenticClient)))
+	http.Handle("/api/reports/project-summary", authMiddleware(authService, httpapi.GenerateProjectReportHandler(repos, agenticClient)))
 	http.Handle("/query", authMiddleware(authService, h))
 
 	c := cors.New(cors.Options{

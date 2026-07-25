@@ -242,6 +242,27 @@ func formatDatePtr(t *time.Time) interface{} {
 	return t.Format("2006-01-02")
 }
 
+func formatProjectStageHistory(sh models.ProjectStageHistory) map[string]interface{} {
+	return map[string]interface{}{
+		"id":        strconv.FormatUint(uint64(sh.ID), 10),
+		"fromStage": string(sh.FromStage),
+		"toStage":   string(sh.ToStage),
+		"changedBy": sh.ChangedBy,
+		"changedAt": formatTime(sh.ChangedAt),
+		"note":      sh.Note,
+	}
+}
+
+func formatDivisionProgress(dp models.DivisionProgress) map[string]interface{} {
+	return map[string]interface{}{
+		"divisiKode":     dp.DivisiKode,
+		"divisiNama":     dp.DivisiNama,
+		"totalTasks":     dp.TotalTasks,
+		"completedTasks": dp.CompletedTasks,
+		"percentDone":    dp.PercentDone,
+	}
+}
+
 func formatProject(project models.Project) map[string]interface{} {
 	divisions := make([]int, len(project.Divisions))
 	for i, d := range project.Divisions {
@@ -251,16 +272,44 @@ func formatProject(project models.Project) map[string]interface{} {
 	for i, l := range project.Leaders {
 		leaders[i] = l.PegawaiKode
 	}
-	return map[string]interface{}{
-		"id":              strconv.FormatUint(uint64(project.ID), 10),
-		"name":            project.Name,
-		"description":     project.Description,
-		"ownerDivisiKode": project.OwnerDivisiKode,
-		"status":          string(project.Status),
-		"createdAt":       formatTime(project.CreatedAt),
-		"divisions":       divisions,
-		"leaders":         leaders,
+	histories := make([]map[string]interface{}, len(project.StageHistory))
+	for i, h := range project.StageHistory {
+		histories[i] = formatProjectStageHistory(h)
 	}
+
+	stage := project.Stage
+	if stage == "" {
+		stage = models.ProjectStagePlanning
+	}
+	stageVersion := project.StageVersion
+	if stageVersion == 0 {
+		stageVersion = 1
+	}
+
+	return map[string]interface{}{
+		"id":               strconv.FormatUint(uint64(project.ID), 10),
+		"name":             project.Name,
+		"description":      project.Description,
+		"ownerDivisiKode":  project.OwnerDivisiKode,
+		"status":           string(project.Status),
+		"stage":            string(stage),
+		"stageVersion":     stageVersion,
+		"createdAt":        formatTime(project.CreatedAt),
+		"divisions":        divisions,
+		"leaders":          leaders,
+		"stageHistory":     histories,
+		"divisionProgress": make([]map[string]interface{}, 0),
+	}
+}
+
+func formatProjectWithDetails(project models.Project, divProgress []models.DivisionProgress) map[string]interface{} {
+	m := formatProject(project)
+	dpList := make([]map[string]interface{}, len(divProgress))
+	for i, dp := range divProgress {
+		dpList[i] = formatDivisionProgress(dp)
+	}
+	m["divisionProgress"] = dpList
+	return m
 }
 
 func formatProjects(projects []models.Project) []map[string]interface{} {

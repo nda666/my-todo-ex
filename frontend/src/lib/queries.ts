@@ -92,9 +92,26 @@ export const PROJECT_FIELDS = gql`
     description
     ownerDivisiKode
     status
+    stage
+    stageVersion
     createdAt
     divisions
     leaders
+    stageHistory {
+      id
+      fromStage
+      toStage
+      changedBy
+      changedAt
+      note
+    }
+    divisionProgress {
+      divisiKode
+      divisiNama
+      totalTasks
+      completedTasks
+      percentDone
+    }
   }
 `;
 
@@ -400,6 +417,36 @@ export const ADD_PROJECT_LEADER = gql`
 export const REMOVE_PROJECT_LEADER = gql`
   mutation RemoveProjectLeader($projectId: ID!, $pegawaiKode: String!) {
     removeProjectLeader(projectId: $projectId, pegawaiKode: $pegawaiKode)
+  }
+`;
+
+export const ADVANCE_PROJECT_STAGE = gql`
+  ${PROJECT_FIELDS}
+  mutation AdvanceProjectStage(
+    $projectId: ID!
+    $toStage: ProjectStage!
+    $note: String
+    $expectedVersion: Int!
+    $force: Boolean
+  ) {
+    advanceProjectStage(
+      projectId: $projectId
+      toStage: $toStage
+      note: $note
+      expectedVersion: $expectedVersion
+      force: $force
+    ) {
+      ...ProjectFields
+    }
+  }
+`;
+
+export const REOPEN_PROJECT = gql`
+  ${PROJECT_FIELDS}
+  mutation ReopenProject($projectId: ID!, $expectedVersion: Int!) {
+    reopenProject(projectId: $projectId, expectedVersion: $expectedVersion) {
+      ...ProjectFields
+    }
   }
 `;
 

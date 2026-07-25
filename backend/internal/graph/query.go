@@ -195,7 +195,33 @@ func queryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				return formatProject(*project), nil
+				divProgress, _ := repos.Project.GetDivisionProgress(p.Context, id)
+				return formatProjectWithDetails(*project, divProgress), nil
+			},
+		},
+
+		"projectDivisionProgress": &graphql.Field{
+			Type: graphql.NewList(graphql.NewNonNull(t.DivisionProgressType)),
+			Args: graphql.FieldConfigArgument{
+				"projectId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				if _, err := auth.RequireUser(p.Context); err != nil {
+					return nil, err
+				}
+				id, err := parseID(p.Args["projectId"])
+				if err != nil {
+					return nil, err
+				}
+				progress, err := repos.Project.GetDivisionProgress(p.Context, id)
+				if err != nil {
+					return nil, err
+				}
+				result := make([]map[string]interface{}, len(progress))
+				for i, dp := range progress {
+					result[i] = formatDivisionProgress(dp)
+				}
+				return result, nil
 			},
 		},
 

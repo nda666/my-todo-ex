@@ -90,3 +90,45 @@ func GenerateReportHandler(repos *repository.Repositories, aiClient ai.Client, a
 		http.ServeFile(w, r, outputPath)
 	}
 }
+
+func GenerateProjectReportHandler(repos *repository.Repositories, agenticClient *ai.AgenticClient) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_, err := auth.RequireUser(r.Context())
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		projIDStr := r.URL.Query().Get("projectId")
+		styleNotes := r.URL.Query().Get("style")
+		projID, err := strconv.ParseUint(projIDStr, 10, 64)
+		if err != nil || projID == 0 {
+			http.Error(w, "parameter projectId tidak valid", http.StatusBadRequest)
+			return
+		}
+
+		project, err := repos.Project.FindByID(r.Context(), uint(projID))
+		if err != nil {
+			http.Error(w, "project tidak ditemukan: "+err.Error(), http.StatusNotFound)
+			return
+		}
+
+		divProgress, err := repos.Project.GetDivisionProgress(r.Context(), uint(projID))
+		if err != nil {
+			http.Error(w, "gagal memuat progres divisi: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		outputPath, err := reportgen.GenerateProjectReport(r.Context(), agenticClient, project, divProgress, styleNotes)
+		if err != nil {
+			http.Error(w, "gagal membuat file presentasi project: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer os.Remove(outputPath)
+
+		filename := fmt.Sprintf("Laporan-Project-%s.pptx", project.Name)
+		w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+		http.ServeFile(w, r, outputPath)
+	}
+}
