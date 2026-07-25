@@ -1,8 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, {
+  useMemo,
+  useState,
+} from 'react';
+
+import {
+  Empty,
+  Tag,
+  Typography,
+} from 'antd';
 import * as d3 from 'd3';
-import { Empty, Tag, Typography } from 'antd';
+
 import { PieChartOutlined } from '@ant-design/icons';
-import { Colleague, Task } from '../types/task';
+
+import {
+  Colleague,
+  Task,
+} from '../types/task';
 
 const { Title, Text } = Typography;
 
@@ -226,11 +239,10 @@ export default function TaskAssigneePieChart({
             return (
               <div
                 key={item.userKode}
-                className={`flex items-center justify-between p-2 rounded-lg text-xs transition-colors cursor-pointer border ${
-                  isHovered
+                className={`flex items-center justify-between p-2 rounded-lg text-xs transition-colors cursor-pointer border ${isHovered
                     ? 'bg-blue-50 dark:bg-slate-800 border-blue-200 dark:border-slate-700'
                     : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                  }`}
                 onMouseEnter={() => setActiveSlice(item)}
                 onMouseLeave={() => setActiveSlice(null)}
               >
