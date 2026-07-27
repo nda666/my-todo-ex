@@ -14,7 +14,7 @@ import {
 import { useQuery } from '@apollo/client';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
-import { GET_COLLEAGUES } from '../lib/queries';
+import { GET_COLLEAGUES, GET_TASKS } from '../lib/queries';
 import {
     Colleague,
     MetaDraft,
@@ -32,6 +32,7 @@ interface EditTaskFormValues {
     description?: string
     status: TaskStatus
     targetUserKode?: string
+    dependsOnTaskId?: string
 }
 
 interface TaskEditModalProps {
@@ -53,16 +54,23 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
     const { data: colleaguesData, loading: loadingColleagues } = useQuery(GET_COLLEAGUES, {
         skip: !open || !!assignees,
     })
+    const { data: projectTasksData, loading: loadingTasks } = useQuery(GET_TASKS, {
+        variables: { limit: 100, projectId: task?.projectId || undefined },
+        skip: !open || !task,
+    })
 
     const availableAssignees: Colleague[] = assignees || colleaguesData?.colleagues || []
+    const availableTasks: Task[] = (projectTasksData?.tasks?.tasks || []).filter((t: Task) => t.id !== task?.id)
 
     useEffect(() => {
         if (task && open) {
+            const dependsOnVal = task.meta?.find((m) => m.key === 'dependsOn' || m.key === 'blockedBy')?.value || undefined
             form.setFieldsValue({
                 title: task.title,
                 description: task.description || undefined,
                 status: task.status,
                 targetUserKode: task.userKode || undefined,
+                dependsOnTaskId: dependsOnVal,
             })
             setMetaItems(
                 (task.meta || []).map((m) => ({
@@ -79,13 +87,22 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
     const handleFinish = async (values: EditTaskFormValues) => {
         if (!task) return
 
-        const formattedMeta = metaItems
-            .filter((item) => item.key.trim())
-            .map((item) => ({
-                key: item.key.trim(),
-                value: item.value || null,
-                type: item.type,
-            }))
+        let filteredMeta = metaItems.filter((item) => item.key.trim() && item.key !== 'dependsOn')
+
+        if (values.dependsOnTaskId) {
+            filteredMeta.push({
+                draftId: 'meta-dependsOn-' + Date.now(),
+                key: 'dependsOn',
+                value: values.dependsOnTaskId,
+                type: 'TEXT',
+            })
+        }
+
+        const formattedMeta = filteredMeta.map((item) => ({
+            key: item.key.trim(),
+            value: item.value || null,
+            type: item.type,
+        }))
 
         await onSubmit(task.id, {
             title: values.title.trim(),
@@ -143,6 +160,24 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
 
                 <Form.Item name="status" label="Status" rules={[{ required: true }]}>
                     <Select options={STATUS_OPTIONS} className="w-full" size="large" />
+                </Form.Item>
+
+                <Form.Item name="dependsOnTaskId" label="Terhalang oleh / Depends On (Opsional)">
+                    <Select
+                        placeholder="Pilih task prasyarat yang harus selesai dulu..."
+                        allowClear
+                        showSearch
+                        filterOption={(input, option) =>
+                            (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
+                        }
+                        loading={loadingTasks}
+                        options={availableTasks.map((t) => ({
+                            label: `${t.title} [${t.status}]`,
+                            value: t.id,
+                        }))}
+                        className="w-full"
+                        size="large"
+                    />
                 </Form.Item>
 
                 {task && (

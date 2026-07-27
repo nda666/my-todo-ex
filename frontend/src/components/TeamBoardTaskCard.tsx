@@ -14,6 +14,7 @@ import {
     DeleteOutlined,
     EditOutlined,
     FieldTimeOutlined,
+    LockOutlined,
     UserOutlined,
 } from '@ant-design/icons';
 
@@ -69,9 +70,16 @@ export default function TeamBoardTaskCard({
                 bodyStyle={{ padding: '1rem' }}
             >
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <Title level={5} className="!mb-0 font-semibold !text-slate-800 dark:!text-slate-100 truncate">
-                        {task.title}
-                    </Title>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <Title level={5} className="!mb-0 font-semibold !text-slate-800 dark:!text-slate-100 truncate">
+                            {task.title}
+                        </Title>
+                        {task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value) && (
+                            <Tag color="red" className="shrink-0 text-[10px] font-bold px-1.5 py-0 rounded flex items-center gap-0.5">
+                                <LockOutlined /> BLOCKED
+                            </Tag>
+                        )}
+                    </div>
                     <Tag color={activeStatus?.color || 'default'} className="shrink-0">{activeStatus?.label || task.status}</Tag>
                 </div>
 

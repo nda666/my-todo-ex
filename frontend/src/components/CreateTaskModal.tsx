@@ -13,9 +13,9 @@ import {
 import { Dayjs } from 'dayjs';
 import { useQuery } from '@apollo/client';
 
-import { GET_COLLEAGUES, GET_PROJECTS } from '../lib/queries';
+import { GET_COLLEAGUES, GET_PROJECTS, GET_TASKS } from '../lib/queries';
 import { Project } from '../types/project';
-import { Colleague, MetaDraft } from '../types/task';
+import { Colleague, MetaDraft, Task } from '../types/task';
 import TaskMetaEditor from './TaskMetaEditor';
 
 const { Title } = Typography
@@ -46,6 +46,7 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
   const [dueDate, setDueDate] = React.useState<Dayjs | null>(null)
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(initialProjectId || null)
   const [selectedTargetUser, setSelectedTargetUser] = React.useState<string | undefined>(undefined)
+  const [dependsOnTaskId, setDependsOnTaskId] = React.useState<string | null>(null)
   const [subtasks, setSubtasks] = React.useState<string[]>([])
   const [newSubtaskText, setNewSubtaskText] = React.useState('')
 
@@ -55,14 +56,20 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
   const { data: colleaguesData, loading: loadingColleagues } = useQuery(GET_COLLEAGUES, {
     skip: !open || !!assignees,
   })
+  const { data: projectTasksData, loading: loadingTasks } = useQuery(GET_TASKS, {
+    variables: { limit: 100, projectId: selectedProjectId || undefined },
+    skip: !open,
+  })
 
   const projects: Project[] = projectsData?.projects || []
   const availableAssignees: Colleague[] = assignees || colleaguesData?.colleagues || []
+  const availableTasks: Task[] = projectTasksData?.tasks?.tasks || []
 
   React.useEffect(() => {
     if (open) {
       setSelectedProjectId(initialProjectId || null)
       setSelectedTargetUser(undefined)
+      setDependsOnTaskId(null)
     }
   }, [open, initialProjectId])
 
@@ -72,6 +79,7 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
     setDueDate(null)
     setSelectedProjectId(initialProjectId || null)
     setSelectedTargetUser(undefined)
+    setDependsOnTaskId(null)
     setSubtasks([])
     setNewSubtaskText('')
   }
@@ -93,11 +101,23 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
     if (newSubtaskText.trim()) {
       allSubtasks.push(newSubtaskText.trim())
     }
+
+    let finalMeta = [...metaItems]
+    if (dependsOnTaskId) {
+      finalMeta = finalMeta.filter((m) => m.key !== 'dependsOn')
+      finalMeta.push({
+        draftId: 'meta-dependsOn-' + Date.now(),
+        key: 'dependsOn',
+        value: dependsOnTaskId,
+        type: 'TEXT',
+      })
+    }
+
     await onCreate({
       title: values.title,
       description: values.description,
       targetUserKode: selectedTargetUser,
-      meta: metaItems,
+      meta: finalMeta,
       startDate: startDate?.format('YYYY-MM-DD'),
       dueDate: dueDate?.format('YYYY-MM-DD'),
       projectId: selectedProjectId,
@@ -163,6 +183,26 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
                   value: p.id,
                 })),
             ]}
+            className="w-full"
+            size="large"
+          />
+        </Form.Item>
+
+        <Form.Item label="Terhalang oleh / Depends On (Opsional)">
+          <Select
+            placeholder="Pilih task prasyarat yang harus selesai dulu..."
+            allowClear
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
+            }
+            loading={loadingTasks}
+            value={dependsOnTaskId}
+            onChange={(val) => setDependsOnTaskId(val || null)}
+            options={availableTasks.map((t) => ({
+              label: `${t.title} [${t.status}]`,
+              value: t.id,
+            }))}
             className="w-full"
             size="large"
           />

@@ -42,6 +42,11 @@ export default function TaskDetailModal({ open, task, onClose, readOnly, members
                     <Title level={4} className="!mb-0 font-semibold !text-slate-800 dark:!text-slate-100">
                         {task.title}
                     </Title>
+                    {task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value) && (
+                        <Tag color="red" className="font-bold rounded-full px-2.5">
+                            BLOCKED
+                        </Tag>
+                    )}
                     <Tag color={activeStatus?.color || 'default'}>{activeStatus?.label || task.status}</Tag>
                 </div>
 

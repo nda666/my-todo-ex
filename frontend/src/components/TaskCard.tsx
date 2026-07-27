@@ -14,6 +14,7 @@ import {
     DeleteOutlined,
     EditOutlined,
     FieldTimeOutlined,
+    LockOutlined,
     UnorderedListOutlined,
     UserOutlined,
 } from '@ant-design/icons';
@@ -100,6 +101,11 @@ export default function TaskCard({
                         <Title level={4} className="!mb-0 font-semibold !text-slate-800 dark:!text-slate-100">
                             {task.title}
                         </Title>
+                        {task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value) && (
+                            <Tag color="red" className="font-bold rounded-full px-2.5 flex items-center gap-1">
+                                <LockOutlined /> BLOCKED
+                            </Tag>
+                        )}
                         <Tag color={activeStatus?.color || 'default'} className="font-medium rounded-full px-2.5">
                             {activeStatus?.label || task.status}
                         </Tag>

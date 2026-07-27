@@ -32,8 +32,9 @@ import CreateTaskModal from '../components/CreateTaskModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useScrollRestoration } from '../contexts/ScrollRestorationContext';
 import { useTeamHeader } from '../layouts/TeamLayout';
-import { CREATE_TASK, GET_COLLEAGUES_BY_DIVISI } from '../lib/queries';
-import { Colleague } from '../types/task';
+import { CREATE_TASK, GET_COLLEAGUES_BY_DIVISI, GET_TASKS, UPDATE_TASK } from '../lib/queries';
+import { Colleague, Task } from '../types/task';
+import WorkloadCapacityWidget from '../components/WorkloadCapacityWidget';
 
 const { Text } = Typography
 
@@ -62,7 +63,25 @@ export default function TeamDivisionMembers() {
         skip: !divisiKode,
     })
 
+    const { data: tasksData, refetch: refetchTasks } = useQuery(GET_TASKS, {
+        variables: { limit: 200 },
+        fetchPolicy: 'cache-and-network',
+    })
+
+    const teamTasks: Task[] = useMemo(() => tasksData?.tasks?.tasks || [], [tasksData])
+
     const [createTaskMutation, { loading: creatingTask }] = useMutation(CREATE_TASK)
+    const [updateTaskMutation] = useMutation(UPDATE_TASK)
+
+    const handleReassignTask = async (taskId: string, targetUserKode: string) => {
+        await updateTaskMutation({
+            variables: {
+                id: taskId,
+                input: { targetUserKode },
+            },
+        })
+        refetchTasks()
+    }
 
     useTeamHeader({ title: 'Anggota Divisi', onBack: handleBack, headerExtra })
 
@@ -92,6 +111,7 @@ export default function TeamDivisionMembers() {
             })
             message.success(`Task berhasil ditugaskan kepada ${assigningMember?.nama || 'pegawai'}`)
             setAssigningMember(null)
+            refetchTasks()
         } catch (err: any) {
             message.error(err.message || 'Gagal menugaskan task')
         }
@@ -99,6 +119,14 @@ export default function TeamDivisionMembers() {
 
     return (
         <>
+            <WorkloadCapacityWidget
+                members={members}
+                tasks={teamTasks}
+                isLeader={isLeader}
+                onReassignTask={handleReassignTask}
+                onRefreshTasks={refetchTasks}
+            />
+
             <Input
                 placeholder="Cari nama pegawai..."
                 prefix={<SearchOutlined className="!text-slate-400" />}

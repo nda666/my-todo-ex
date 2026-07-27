@@ -1,7 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import {
     Avatar,
+    Tag,
     message,
     Spin,
 } from 'antd';
@@ -20,8 +21,9 @@ import CreateTaskModal from '../components/CreateTaskModal';
 import TeamBoardColumn from '../components/TeamBoardColumn';
 import { useAuth } from '../contexts/AuthContext';
 import { useTeamHeader } from '../layouts/TeamLayout';
-import { CREATE_TASK, GET_COLLEAGUES_BY_DIVISI } from '../lib/queries';
-import { Colleague } from '../types/task';
+import { CREATE_TASK, GET_COLLEAGUES_BY_DIVISI, GET_TASKS } from '../lib/queries';
+import { Colleague, Task } from '../types/task';
+import { getWorkloadInfo } from '../components/WorkloadCapacityWidget';
 
 export default function TeamBoard() {
     const { me } = useAuth()
@@ -43,6 +45,23 @@ export default function TeamBoard() {
         skip: !divisiKode,
     })
     const members: Colleague[] = data?.colleaguesByDivisi || []
+
+    const { data: tasksData } = useQuery(GET_TASKS, {
+        variables: { limit: 200 },
+        fetchPolicy: 'cache-and-network',
+    })
+    const teamTasks: Task[] = tasksData?.tasks?.tasks || []
+
+    // Map user active tasks
+    const activeTaskCountMap = useMemo(() => {
+        const map = new Map<string, number>()
+        teamTasks.forEach((t) => {
+            if (t.status !== 'COMPLETED' && t.userKode) {
+                map.set(t.userKode, (map.get(t.userKode) || 0) + 1)
+            }
+        })
+        return map
+    }, [teamTasks])
 
     const [createTaskMutation, { loading: creatingTask }] = useMutation(CREATE_TASK)
 
@@ -75,26 +94,35 @@ export default function TeamBoard() {
                 <div className="flex justify-center py-20"><Spin size="large" /></div>
             ) : (
                 <div className="flex flex-1 gap-4 overflow-x-auto pb-4" style={{ scrollSnapType: 'x proximity' }}>
-                    {members.map((m: any) => (
-                        <div key={m.kodeku} style={{ scrollSnapAlign: 'start' }} className="shrink-0 w-[85vw] max-w-[320px]">
-                            <div
-                                onClick={() => navigate(`/teams/${divisiKode}/${m.kodeku}`)}
-                                className="flex items-center gap-2 mb-3 px-1 cursor-pointer group"
-                            >
-                                <Avatar size={28} src={m.avatarUrl || undefined} icon={!m.avatarUrl && <UserOutlined />} className="!bg-blue-500" />
-                                <span className="font-semibold !text-slate-800 dark:!text-slate-100 group-hover:!text-blue-600">
-                                    {m.nama}
-                                </span>
-                                {m.statusLeader === 1 && <CrownFilled className="!text-amber-500 text-xs" />}
+                    {members.map((m: any) => {
+                        const activeCount = activeTaskCountMap.get(m.kodeku) || 0;
+                        const workload = getWorkloadInfo(activeCount);
+                        return (
+                            <div key={m.kodeku} style={{ scrollSnapAlign: 'start' }} className="shrink-0 w-[85vw] max-w-[320px]">
+                                <div
+                                    onClick={() => navigate(`/teams/${divisiKode}/${m.kodeku}`)}
+                                    className="flex items-center justify-between mb-3 px-1 cursor-pointer group"
+                                >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <Avatar size={28} src={m.avatarUrl || undefined} icon={!m.avatarUrl && <UserOutlined />} className="!bg-blue-500 flex-shrink-0" />
+                                        <span className="font-semibold !text-slate-800 dark:!text-slate-100 group-hover:!text-blue-600 truncate">
+                                            {m.nama}
+                                        </span>
+                                        {m.statusLeader === 1 && <CrownFilled className="!text-amber-500 text-xs flex-shrink-0" />}
+                                    </div>
+                                    <Tag color={workload.tagColor} className="m-0 text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
+                                        {activeCount} Task
+                                    </Tag>
+                                </div>
+                                <TeamBoardColumn
+                                    userKode={m.kodeku}
+                                    editable={isLeader || m.kodeku === me?.kodeku}
+                                    members={members}
+                                    onQuickAssign={isLeader ? (uKode) => setQuickAssignUserKode(uKode) : undefined}
+                                />
                             </div>
-                            <TeamBoardColumn
-                                userKode={m.kodeku}
-                                editable={isLeader || m.kodeku === me?.kodeku}
-                                members={members}
-                                onQuickAssign={isLeader ? (uKode) => setQuickAssignUserKode(uKode) : undefined}
-                            />
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
