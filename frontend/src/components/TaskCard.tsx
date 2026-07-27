@@ -238,6 +238,7 @@ export default function TaskCard({
             <TaskEditModal
                 open={isEditModalOpen}
                 task={task}
+                assignees={members}
                 onCancel={() => setIsEditModalOpen(false)}
                 onSubmit={async (id, input) => {
                     await handleEditSubmit(id, input)

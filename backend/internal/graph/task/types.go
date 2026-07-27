@@ -213,12 +213,13 @@ func BuildTypes() *Types {
 	updateTaskInput := graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "UpdateTaskInput",
 		Fields: graphql.InputObjectConfigFieldMap{
-			"title":       &graphql.InputObjectFieldConfig{Type: graphql.String},
-			"description": &graphql.InputObjectFieldConfig{Type: graphql.String},
-			"status":      &graphql.InputObjectFieldConfig{Type: taskStatusEnum},
-			"startDate":   &graphql.InputObjectFieldConfig{Type: graphql.String},
-			"dueDate":     &graphql.InputObjectFieldConfig{Type: graphql.String},
-			"meta":        &graphql.InputObjectFieldConfig{Type: graphql.NewList(metaInputType)},
+			"title":          &graphql.InputObjectFieldConfig{Type: graphql.String},
+			"description":    &graphql.InputObjectFieldConfig{Type: graphql.String},
+			"status":         &graphql.InputObjectFieldConfig{Type: taskStatusEnum},
+			"startDate":      &graphql.InputObjectFieldConfig{Type: graphql.String},
+			"dueDate":        &graphql.InputObjectFieldConfig{Type: graphql.String},
+			"meta":           &graphql.InputObjectFieldConfig{Type: graphql.NewList(metaInputType)},
+			"targetUserKode": &graphql.InputObjectFieldConfig{Type: graphql.String},
 		},
 	})
 

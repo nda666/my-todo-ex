@@ -7,6 +7,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import {
+  Colleague,
   MetaDraft,
   Task,
   TaskStatus,
@@ -16,7 +17,8 @@ import TeamBoardTaskCard from './TeamBoardTaskCard';
 interface SortableTeamBoardTaskCardProps {
     task: Task
     editable: boolean
-    onUpdate: (id: string, input: { title?: string; description?: string | null; status?: TaskStatus }) => void
+    members?: Colleague[]
+    onUpdate: (id: string, input: { title?: string; description?: string | null; status?: TaskStatus; targetUserKode?: string }) => void
     onDelete: (id: string) => Promise<void>
     onAddComment: (taskId: string, content: string, parentId: string | null, attachments: CloudinaryUploadResult[]) => Promise<void>
     onToggleReaction: (commentId: string, emoji: string) => void

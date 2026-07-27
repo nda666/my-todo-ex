@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import {
+    Avatar,
     Button,
     Card,
     Popconfirm,
@@ -13,11 +14,13 @@ import {
     DeleteOutlined,
     EditOutlined,
     FieldTimeOutlined,
+    UserOutlined,
 } from '@ant-design/icons';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import {
+    Colleague,
     MetaDraft,
     Task,
     TaskStatus,
@@ -30,7 +33,8 @@ const { Title, Text } = Typography
 interface TeamBoardTaskCardProps {
     task: Task
     editable: boolean
-    onUpdate: (id: string, input: { title?: string; description?: string | null; status?: TaskStatus }) => void
+    members?: Colleague[]
+    onUpdate: (id: string, input: { title?: string; description?: string | null; status?: TaskStatus; targetUserKode?: string }) => void
     onDelete: (id: string) => Promise<void>
     onAddComment: (taskId: string, content: string, parentId: string | null, attachments: CloudinaryUploadResult[]) => Promise<void>
     onToggleReaction: (commentId: string, emoji: string) => void
@@ -40,13 +44,14 @@ interface TeamBoardTaskCardProps {
 }
 
 export default function TeamBoardTaskCard({
-    task, editable, onUpdate, onDelete, onAddComment, onToggleReaction, onSetMeta, onDeleteMeta, onReorderMeta,
+    task, editable, members, onUpdate, onDelete, onAddComment, onToggleReaction, onSetMeta, onDeleteMeta, onReorderMeta,
 }: TeamBoardTaskCardProps) {
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isDetailOpen, setIsDetailOpen] = useState(false)
     const [updating, setUpdating] = useState(false)
 
     const activeStatus = STATUS_OPTIONS.find((s) => s.value === task.status)
+    const assignee = members?.find((m) => m.kodeku === task.userKode)
 
     const handleEditSubmit = async (id: string, input: any) => {
         setUpdating(true)
@@ -76,9 +81,18 @@ export default function TeamBoardTaskCard({
                     <Text className="text-xs italic !text-slate-400 dark:!text-slate-500 block">Tidak ada deskripsi.</Text>
                 )}
 
-                <div className="flex items-center gap-1.5 mt-2 text-[10px] !text-slate-400 dark:!text-slate-500">
-                    <FieldTimeOutlined />
-                    <span>{new Date(task.createdAt).toLocaleDateString('id-ID')}</span>
+                <div className="flex items-center justify-between gap-1.5 mt-3 text-[10px] !text-slate-400 dark:!text-slate-500">
+                    <div className="flex items-center gap-1">
+                        <FieldTimeOutlined />
+                        <span>{new Date(task.createdAt).toLocaleDateString('id-ID')}</span>
+                    </div>
+
+                    {assignee && (
+                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-600 dark:text-slate-300">
+                            <Avatar size={14} src={assignee.avatarUrl} icon={!assignee.avatarUrl && <UserOutlined />} className="!bg-blue-200" />
+                            <span className="truncate max-w-[80px] font-medium">{assignee.nama}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-1.5 mt-3">
@@ -108,6 +122,10 @@ export default function TeamBoardTaskCard({
                 task={task}
                 onClose={() => setIsDetailOpen(false)}
                 readOnly={!editable}
+                members={members}
+                onReassign={async (taskId, targetUserKode) => {
+                    await onUpdate(taskId, { targetUserKode })
+                }}
                 onAddComment={onAddComment}
                 onToggleReaction={onToggleReaction}
             />
@@ -116,6 +134,7 @@ export default function TeamBoardTaskCard({
                 <TaskEditModal
                     open={isEditOpen}
                     task={task}
+                    assignees={members}
                     onCancel={() => setIsEditOpen(false)}
                     onSubmit={async (id, input) => {
                         await handleEditSubmit(id, input)

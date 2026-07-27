@@ -1,12 +1,8 @@
 // frontend/src/components/TeamBoardColumn.tsx
 import React, { useState } from 'react';
 
-import {
-    Collapse,
-    Empty,
-    message,
-    Spin,
-} from 'antd';
+import { Button, Collapse, Empty, message, Spin } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 
 import { useMutation } from '@apollo/client';
 import {
@@ -37,11 +33,21 @@ import {
     TOGGLE_REACTION,
     UPDATE_TASK,
 } from '../lib/queries';
-import { Task } from '../types/task';
+import { Colleague, Task } from '../types/task';
 import DragTaskPreview from './DragTaskPreview';
 import SortableTeamBoardTaskCard from './SortableTeamBoardTaskCard';
 
-export default function TeamBoardColumn({ userKode, editable }: { userKode: string; editable: boolean }) {
+export default function TeamBoardColumn({
+    userKode,
+    editable,
+    members,
+    onQuickAssign,
+}: {
+    userKode: string;
+    editable: boolean;
+    members?: Colleague[];
+    onQuickAssign?: (userKode: string) => void;
+}) {
     const { tasks, loading, loadingMore, hasMore, loadMore } = useInfiniteTasks(userKode)
     const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading)
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -127,75 +133,89 @@ export default function TeamBoardColumn({ userKode, editable }: { userKode: stri
         return <div className="flex justify-center py-10"><Spin /></div>
     }
 
-    if (tasks.length === 0) {
-        return (
-            <div className="!bg-white dark:!bg-slate-900 !border !border-dashed !border-slate-300 dark:!border-slate-800 rounded-xl py-10">
-                <Empty description={<span className="text-xs !text-slate-400">Belum ada task</span>} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            </div>
-        )
-    }
-
     return (
         <div className="max-h-[75vh] overflow-y-auto pr-1">
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragCancel={() => setDraggingTask(null)}
-            >
-                <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                    {activeTasks.map((task) => (
-                        <SortableTeamBoardTaskCard
-                            key={task.id}
-                            task={task}
-                            editable={editable}
-                            onUpdate={handleUpdate}
-                            onDelete={handleDelete}
-                            onAddComment={handleAddComment}
-                            onToggleReaction={handleToggleReaction}
-                            onSetMeta={handleSetMeta}
-                            onDeleteMeta={handleDeleteMeta}
-                            onReorderMeta={handleReorderMeta}
-                        />
-                    ))}
-                </SortableContext>
-                <DragOverlay>{draggingTask && <DragTaskPreview task={draggingTask} />}</DragOverlay>
-            </DndContext>
+            {onQuickAssign && (
+                <Button
+                    type="dashed"
+                    block
+                    icon={<PlusOutlined />}
+                    onClick={() => onQuickAssign(userKode)}
+                    className="mb-3 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-500 rounded-xl"
+                >
+                    Assign Task
+                </Button>
+            )}
 
-            {completedTasks.length > 0 && (
-                <Collapse
-                    size="small"
-                    className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl"
-                    items={[
-                        {
-                            key: 'completed',
-                            label: (
-                                <span className="text-xs font-medium !text-slate-600 dark:!text-slate-300">
-                                    Selesai ({completedTasks.length})
-                                </span>
-                            ),
-                            children: (
-                                <div className="pt-1">
-                                    {completedTasks.map((task) => (
-                                        <SortableTeamBoardTaskCard
-                                            key={task.id}
-                                            task={task}
-                                            editable={false}
-                                            onUpdate={handleUpdate}
-                                            onDelete={handleDelete}
-                                            onAddComment={handleAddComment}
-                                            onToggleReaction={handleToggleReaction}
-                                            onSetMeta={handleSetMeta}
-                                            onDeleteMeta={handleDeleteMeta}
-                                            onReorderMeta={handleReorderMeta}
-                                        />
-                                    ))}
-                                </div>
-                            ),
-                        },
-                    ]}
-                />
+            {tasks.length === 0 ? (
+                <div className="!bg-white dark:!bg-slate-900 !border !border-dashed !border-slate-300 dark:!border-slate-800 rounded-xl py-10">
+                    <Empty description={<span className="text-xs !text-slate-400">Belum ada task</span>} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                </div>
+            ) : (
+                <>
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDragCancel={() => setDraggingTask(null)}
+                    >
+                        <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                            {activeTasks.map((task) => (
+                                <SortableTeamBoardTaskCard
+                                    key={task.id}
+                                    task={task}
+                                    editable={editable}
+                                    members={members}
+                                    onUpdate={handleUpdate}
+                                    onDelete={handleDelete}
+                                    onAddComment={handleAddComment}
+                                    onToggleReaction={handleToggleReaction}
+                                    onSetMeta={handleSetMeta}
+                                    onDeleteMeta={handleDeleteMeta}
+                                    onReorderMeta={handleReorderMeta}
+                                />
+                            ))}
+                        </SortableContext>
+                        <DragOverlay>{draggingTask && <DragTaskPreview task={draggingTask} />}</DragOverlay>
+                    </DndContext>
+
+                    {completedTasks.length > 0 && (
+                        <Collapse
+                            size="small"
+                            className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl mt-3"
+                            items={[
+                                {
+                                    key: 'completed',
+                                    label: (
+                                        <span className="text-xs font-medium !text-slate-600 dark:!text-slate-300">
+                                            Selesai ({completedTasks.length})
+                                        </span>
+                                    ),
+                                    children: (
+                                        <div className="pt-1">
+                                            {completedTasks.map((task) => (
+                                                <SortableTeamBoardTaskCard
+                                                    key={task.id}
+                                                    task={task}
+                                                    editable={false}
+                                                    members={members}
+                                                    onUpdate={handleUpdate}
+                                                    onDelete={handleDelete}
+                                                    onAddComment={handleAddComment}
+                                                    onToggleReaction={handleToggleReaction}
+                                                    onSetMeta={handleSetMeta}
+                                                    onDeleteMeta={handleDeleteMeta}
+                                                    onReorderMeta={handleReorderMeta}
+                                                />
+                                            ))}
+                                        </div>
+                                    ),
+                                },
+                            ]}
+                        />
+                    )}
+                </>
             )}
 
             <div ref={sentinelRef} />

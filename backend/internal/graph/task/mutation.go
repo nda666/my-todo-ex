@@ -142,11 +142,30 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				tsk, err := repos.Task.FindOwned(p.Context, id, claims.Kodeku)
+
+				isLeader := false
+				if pegawai, err := repos.Pegawai.FindByKode(p.Context, claims.ExternalToken, claims.KodeDivisi, claims.PegawaiKode); err == nil {
+					isLeader = pegawai.StatusLeader == 1
+				}
+
+				tsk, err := repos.Task.FindOwnedByLeaderOrUser(p.Context, id, claims.Kodeku, claims.KodeDivisi, isLeader)
 				if err != nil {
 					return nil, err
 				}
 				input := p.Args["input"].(map[string]interface{})
+
+				if targetUserVal, ok := input["targetUserKode"]; ok && targetUserVal != nil {
+					newTargetUserKode := targetUserVal.(string)
+					if isLeader || claims.Kodeku == tsk.CreatedBy {
+						targetKode, convErr := strconv.Atoi(newTargetUserKode)
+						if convErr == nil {
+							if _, err := repos.Pegawai.FindByKode(p.Context, claims.ExternalToken, claims.KodeDivisi, targetKode); err == nil {
+								tsk.UserKode = newTargetUserKode
+							}
+						}
+					}
+				}
+
 				if v, ok := input["title"]; ok && v != nil {
 					tsk.Title = v.(string)
 				}

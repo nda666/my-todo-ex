@@ -122,6 +122,7 @@ input UpdateTaskInput {
   startDate: String
   dueDate: String
   meta: [TaskMetaInput!]
+  targetUserKode: String
 }
 
 type Query {

@@ -1,7 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import {
     Avatar,
+    message,
     Spin,
 } from 'antd';
 import {
@@ -13,18 +14,23 @@ import {
     CrownFilled,
     UserOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 
+import CreateTaskModal from '../components/CreateTaskModal';
 import TeamBoardColumn from '../components/TeamBoardColumn';
 import { useAuth } from '../contexts/AuthContext';
 import { useTeamHeader } from '../layouts/TeamLayout';
-import { GET_COLLEAGUES_BY_DIVISI } from '../lib/queries';
+import { CREATE_TASK, GET_COLLEAGUES_BY_DIVISI } from '../lib/queries';
+import { Colleague } from '../types/task';
 
 export default function TeamBoard() {
     const { me } = useAuth()
     const navigate = useNavigate()
     const { divisiId } = useParams<{ divisiId: string }>()
     const divisiKode = Number(divisiId)
+    const [quickAssignUserKode, setQuickAssignUserKode] = useState<string | null>(null)
+
+    const isLeader = me?.pegawai?.statusLeader === 1
 
     const handleBack = useCallback(
         () => navigate(`/teams/${divisiKode}`, { preventScrollReset: true }),
@@ -36,7 +42,32 @@ export default function TeamBoard() {
         variables: { divisiKode },
         skip: !divisiKode,
     })
-    const members = data?.colleaguesByDivisi || []
+    const members: Colleague[] = data?.colleaguesByDivisi || []
+
+    const [createTaskMutation, { loading: creatingTask }] = useMutation(CREATE_TASK)
+
+    const handleCreateTaskForMember = async (values: any) => {
+        try {
+            await createTaskMutation({
+                variables: {
+                    input: {
+                        title: values.title,
+                        description: values.description || null,
+                        targetUserKode: values.targetUserKode || quickAssignUserKode,
+                        startDate: values.startDate || null,
+                        dueDate: values.dueDate || null,
+                        projectId: values.projectId || null,
+                        meta: values.meta || [],
+                        subtasks: values.subtasks || [],
+                    }
+                }
+            })
+            message.success('Task berhasil dibuat dan ditugaskan')
+            setQuickAssignUserKode(null)
+        } catch (err: any) {
+            message.error(err.message || 'Gagal menugaskan task')
+        }
+    }
 
     return (
         <>
@@ -56,11 +87,24 @@ export default function TeamBoard() {
                                 </span>
                                 {m.statusLeader === 1 && <CrownFilled className="!text-amber-500 text-xs" />}
                             </div>
-                            <TeamBoardColumn userKode={m.kodeku} editable={m.kodeku === me?.kodeku} />
+                            <TeamBoardColumn
+                                userKode={m.kodeku}
+                                editable={isLeader || m.kodeku === me?.kodeku}
+                                members={members}
+                                onQuickAssign={isLeader ? (uKode) => setQuickAssignUserKode(uKode) : undefined}
+                            />
                         </div>
                     ))}
                 </div>
             )}
+
+            <CreateTaskModal
+                open={!!quickAssignUserKode}
+                onCancel={() => setQuickAssignUserKode(null)}
+                onCreate={handleCreateTaskForMember}
+                loading={creatingTask}
+                assignees={members}
+            />
         </>
     )
 }

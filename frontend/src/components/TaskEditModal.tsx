@@ -11,9 +11,12 @@ import {
     Select,
     Typography,
 } from 'antd';
+import { useQuery } from '@apollo/client';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
+import { GET_COLLEAGUES } from '../lib/queries';
 import {
+    Colleague,
     MetaDraft,
     Task,
     TaskStatus,
@@ -28,22 +31,30 @@ interface EditTaskFormValues {
     title: string
     description?: string
     status: TaskStatus
+    targetUserKode?: string
 }
 
 interface TaskEditModalProps {
     open: boolean
     task: Task | null
+    assignees?: Colleague[]
     onCancel: () => void
-    onSubmit: (id: string, values: { title: string; description?: string | null; status: TaskStatus; meta?: Array<{ key: string; value?: string | null; type: MetaDraft['type'] }> }) => Promise<void>
+    onSubmit: (id: string, values: { title: string; description?: string | null; status: TaskStatus; targetUserKode?: string; meta?: Array<{ key: string; value?: string | null; type: MetaDraft['type'] }> }) => Promise<void>
     onSetMeta?: (taskId: string, key: string, value: string | null, type: MetaDraft['type']) => Promise<{ id: string }>
     onDeleteMeta?: (id: string) => Promise<void>
     onReorderMeta?: (taskId: string, orderedIds: string[]) => void
     loading: boolean
 }
 
-export default function TaskEditModal({ open, task, onCancel, onSubmit, loading }: TaskEditModalProps) {
+export default function TaskEditModal({ open, task, assignees, onCancel, onSubmit, loading }: TaskEditModalProps) {
     const [form] = Form.useForm<EditTaskFormValues>()
     const [metaItems, setMetaItems] = useState<MetaDraft[]>([])
+
+    const { data: colleaguesData, loading: loadingColleagues } = useQuery(GET_COLLEAGUES, {
+        skip: !open || !!assignees,
+    })
+
+    const availableAssignees: Colleague[] = assignees || colleaguesData?.colleagues || []
 
     useEffect(() => {
         if (task && open) {
@@ -51,6 +62,7 @@ export default function TaskEditModal({ open, task, onCancel, onSubmit, loading 
                 title: task.title,
                 description: task.description || undefined,
                 status: task.status,
+                targetUserKode: task.userKode || undefined,
             })
             setMetaItems(
                 (task.meta || []).map((m) => ({
@@ -79,6 +91,7 @@ export default function TaskEditModal({ open, task, onCancel, onSubmit, loading 
             title: values.title.trim(),
             description: values.description?.trim() || null,
             status: values.status,
+            targetUserKode: values.targetUserKode || undefined,
             meta: formattedMeta,
         })
     }
@@ -104,6 +117,24 @@ export default function TaskEditModal({ open, task, onCancel, onSubmit, loading 
                     rules={[{ required: true, message: 'Judul task tidak boleh kosong!' }]}
                 >
                     <Input size="large" className="rounded-lg" />
+                </Form.Item>
+
+                <Form.Item name="targetUserKode" label="Penanggung Jawab / Assignee">
+                    <Select
+                        placeholder="Pilih assignee..."
+                        allowClear
+                        showSearch
+                        filterOption={(input, option) =>
+                            (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
+                        }
+                        loading={loadingColleagues}
+                        options={availableAssignees.map((c) => ({
+                            label: `${c.nama}${c.jabatan?.nama ? ` (${c.jabatan.nama})` : ''}`,
+                            value: c.kodeku,
+                        }))}
+                        className="w-full"
+                        size="large"
+                    />
                 </Form.Item>
 
                 <Form.Item name="description" label="Deskripsi">

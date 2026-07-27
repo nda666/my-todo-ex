@@ -33,6 +33,7 @@ type TaskRepository interface {
 	FindPaginated(ctx context.Context, opts TaskQueryOptions) ([]models.Task, error)
 	FindByID(ctx context.Context, id uint) (*models.Task, error)
 	FindOwned(ctx context.Context, id uint, kodeku string) (*models.Task, error)
+	FindOwnedByLeaderOrUser(ctx context.Context, id uint, kodeku string, divisiKode int, isLeader bool) (*models.Task, error)
 	FindByUserKodesInRange(ctx context.Context, userKodes []string, from, to time.Time) ([]models.Task, error)
 	FindByProjectID(ctx context.Context, projectID uint, cursorID uint, limit int) ([]models.Task, error)
 
@@ -116,6 +117,25 @@ func (r *taskRepository) FindOwned(ctx context.Context, id uint, kodeku string) 
 	err := r.db.WithContext(ctx).
 		Where("id = ? AND (user_kode = ? OR created_by = ?)", id, kodeku, kodeku).
 		First(&task).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("task not found")
+		}
+		return nil, err
+	}
+	return &task, nil
+}
+
+func (r *taskRepository) FindOwnedByLeaderOrUser(ctx context.Context, id uint, kodeku string, divisiKode int, isLeader bool) (*models.Task, error) {
+	var task models.Task
+	query := r.db.WithContext(ctx).Where("id = ?", id)
+	if isLeader && divisiKode > 0 {
+		query = query.Where("(user_kode = ? OR created_by = ? OR divisi_kode = ?)", kodeku, kodeku, divisiKode)
+	} else {
+		query = query.Where("(user_kode = ? OR created_by = ?)", kodeku, kodeku)
+	}
+
+	err := query.First(&task).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("task not found")
