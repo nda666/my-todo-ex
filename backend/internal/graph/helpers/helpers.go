@@ -1,4 +1,4 @@
-package graph
+package helpers
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"golang-todo/internal/repository"
 )
 
-func parseID(v interface{}) (uint, error) {
+func ParseID(v interface{}) (uint, error) {
 	switch id := v.(type) {
 	case string:
 		n, err := strconv.ParseUint(id, 10, 64)
@@ -26,43 +26,43 @@ func parseID(v interface{}) (uint, error) {
 	}
 }
 
-func strVal(v interface{}) string {
+func StrVal(v interface{}) string {
 	if v == nil {
 		return ""
 	}
 	return v.(string)
 }
 
-func formatTime(t time.Time) string {
+func FormatTime(t time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
-func formatSubtask(s models.Subtask) map[string]interface{} {
+func FormatSubtask(s models.Subtask) map[string]interface{} {
 	return map[string]interface{}{
 		"id":          strconv.FormatUint(uint64(s.ID), 10),
 		"taskId":      strconv.FormatUint(uint64(s.TaskID), 10),
 		"description": s.Description,
 		"status":      s.Status,
 		"sortOrder":   s.SortOrder,
-		"createdAt":   formatTime(s.CreatedAt),
-		"updatedAt":   formatTime(s.UpdatedAt),
+		"createdAt":   FormatTime(s.CreatedAt),
+		"updatedAt":   FormatTime(s.UpdatedAt),
 	}
 }
 
-func formatTask(task models.Task, currentUserKode string) map[string]interface{} {
+func FormatTask(task models.Task, currentUserKode string) map[string]interface{} {
 	comments := make([]map[string]interface{}, 0)
 	for _, c := range task.Comments {
-		if c.ParentID == nil { // hanya top-level, replies sudah nested di dalamnya
-			comments = append(comments, formatComment(c, currentUserKode))
+		if c.ParentID == nil {
+			comments = append(comments, FormatComment(c, currentUserKode))
 		}
 	}
 	meta := make([]map[string]interface{}, len(task.Meta))
 	for i, m := range task.Meta {
-		meta[i] = formatMeta(m)
+		meta[i] = FormatMeta(m)
 	}
 	subtasks := make([]map[string]interface{}, len(task.Subtasks))
 	for i, s := range task.Subtasks {
-		subtasks[i] = formatSubtask(s)
+		subtasks[i] = FormatSubtask(s)
 	}
 	return map[string]interface{}{
 		"id":          strconv.FormatUint(uint64(task.ID), 10),
@@ -71,11 +71,11 @@ func formatTask(task models.Task, currentUserKode string) map[string]interface{}
 		"status":      task.Status,
 		"userKode":    task.UserKode,
 		"createdBy":   task.CreatedBy,
-		"startDate":   formatDatePtr(task.StartDate),   // <-- baru
-		"dueDate":     formatDatePtr(task.DueDate),     // <-- baru
-		"completedAt": formatDatePtr(task.CompletedAt), // <-- baru
-		"createdAt":   formatTime(task.CreatedAt),
-		"updatedAt":   formatTime(task.UpdatedAt),
+		"startDate":   FormatDatePtr(task.StartDate),
+		"dueDate":     FormatDatePtr(task.DueDate),
+		"completedAt": FormatDatePtr(task.CompletedAt),
+		"createdAt":   FormatTime(task.CreatedAt),
+		"updatedAt":   FormatTime(task.UpdatedAt),
 		"sortOrder":   task.SortOrder,
 		"comments":    comments,
 		"meta":        meta,
@@ -83,15 +83,15 @@ func formatTask(task models.Task, currentUserKode string) map[string]interface{}
 	}
 }
 
-func formatTasks(tasks []models.Task, currentUserKode string) []map[string]interface{} {
+func FormatTasks(tasks []models.Task, currentUserKode string) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(tasks))
 	for i, t := range tasks {
-		result[i] = formatTask(t, currentUserKode)
+		result[i] = FormatTask(t, currentUserKode)
 	}
 	return result
 }
 
-func formatMeta(m models.TaskMeta) map[string]interface{} {
+func FormatMeta(m models.TaskMeta) map[string]interface{} {
 	return map[string]interface{}{
 		"id":        strconv.FormatUint(uint64(m.ID), 10),
 		"key":       m.Key,
@@ -101,7 +101,7 @@ func formatMeta(m models.TaskMeta) map[string]interface{} {
 	}
 }
 
-func formatAttachment(a models.CommentAttachment) map[string]interface{} {
+func FormatAttachment(a models.CommentAttachment) map[string]interface{} {
 	return map[string]interface{}{
 		"id":        strconv.FormatUint(uint64(a.ID), 10),
 		"url":       a.URL,
@@ -111,18 +111,16 @@ func formatAttachment(a models.CommentAttachment) map[string]interface{} {
 	}
 }
 
-// formatComment butuh currentUserKode buat tahu status "reacted"
-func formatComment(c models.TaskComment, currentUserKode string) map[string]interface{} {
+func FormatComment(c models.TaskComment, currentUserKode string) map[string]interface{} {
 	replies := make([]map[string]interface{}, len(c.Replies))
 	for i, r := range c.Replies {
-		replies[i] = formatComment(r, currentUserKode)
+		replies[i] = FormatComment(r, currentUserKode)
 	}
 	attachments := make([]map[string]interface{}, len(c.Attachments))
 	for i, a := range c.Attachments {
-		attachments[i] = formatAttachment(a)
+		attachments[i] = FormatAttachment(a)
 	}
 
-	// group reactions by emoji
 	grouped := map[string]int{}
 	reactedByMe := map[string]bool{}
 	for _, r := range c.Reactions {
@@ -149,7 +147,7 @@ func formatComment(c models.TaskComment, currentUserKode string) map[string]inte
 		"id":          strconv.FormatUint(uint64(c.ID), 10),
 		"content":     c.Content,
 		"userKode":    c.UserKode,
-		"createdAt":   formatTime(c.CreatedAt),
+		"createdAt":   FormatTime(c.CreatedAt),
 		"parentId":    parentID,
 		"replies":     replies,
 		"reactions":   reactions,
@@ -157,7 +155,7 @@ func formatComment(c models.TaskComment, currentUserKode string) map[string]inte
 	}
 }
 
-func formatUser(u models.User) map[string]interface{} {
+func FormatUser(u models.User) map[string]interface{} {
 	var peg map[string]interface{}
 	if u.Pegawai != nil {
 		var jab map[string]interface{}
@@ -186,21 +184,21 @@ func formatUser(u models.User) map[string]interface{} {
 	}
 }
 
-func formatColleague(p models.Pegawai) map[string]interface{} {
+func FormatColleague(p models.Pegawai) map[string]interface{} {
 	var jab map[string]interface{}
 	if p.Jabatan != nil {
 		jab = map[string]interface{}{"kode": p.Jabatan.Kode, "nama": p.Jabatan.Nama}
 	}
 	return map[string]interface{}{
-		"kodeku":       strconv.Itoa(p.Kode), // kode pegawai, stringified
+		"kodeku":       strconv.Itoa(p.Kode),
 		"nama":         p.Nama,
 		"jabatan":      jab,
 		"statusLeader": p.StatusLeader,
-		"avatarUrl":    nil, // API directory gak kasih avatar per-orang; biar frontend fallback ke inisial
+		"avatarUrl":    nil,
 	}
 }
 
-func buildActorContext(ctx context.Context, repos *repository.Repositories, claims *auth.Claims) (auth.ActorContext, error) {
+func BuildActorContext(ctx context.Context, repos *repository.Repositories, claims *auth.Claims) (auth.ActorContext, error) {
 	isLeader := false
 	if pegawai, err := repos.Pegawai.FindByKode(ctx, claims.ExternalToken, claims.KodeDivisi, claims.PegawaiKode); err == nil {
 		isLeader = pegawai.StatusLeader == 1
@@ -212,14 +210,12 @@ func buildActorContext(ctx context.Context, repos *repository.Repositories, clai
 	}, nil
 }
 
-func mustAtoi(s string) int {
+func MustAtoi(s string) int {
 	n, _ := strconv.Atoi(s)
 	return n
 }
 
-// parseDatePtr menerima value argumen GraphQL bertipe string tanggal ("YYYY-MM-DD")
-// dan mengembalikan *time.Time, atau nil kalau kosong/tidak valid.
-func parseDatePtr(v interface{}) *time.Time {
+func ParseDatePtr(v interface{}) *time.Time {
 	if v == nil {
 		return nil
 	}
@@ -234,26 +230,25 @@ func parseDatePtr(v interface{}) *time.Time {
 	return &t
 }
 
-// formatDatePtr kebalikan dari parseDatePtr, dipakai saat mengembalikan Task ke GraphQL.
-func formatDatePtr(t *time.Time) interface{} {
+func FormatDatePtr(t *time.Time) interface{} {
 	if t == nil {
 		return nil
 	}
 	return t.Format("2006-01-02")
 }
 
-func formatProjectStageHistory(sh models.ProjectStageHistory) map[string]interface{} {
+func FormatProjectStageHistory(sh models.ProjectStageHistory) map[string]interface{} {
 	return map[string]interface{}{
 		"id":        strconv.FormatUint(uint64(sh.ID), 10),
 		"fromStage": sh.FromStage,
 		"toStage":   sh.ToStage,
 		"changedBy": sh.ChangedBy,
-		"changedAt": formatTime(sh.ChangedAt),
+		"changedAt": FormatTime(sh.ChangedAt),
 		"note":      sh.Note,
 	}
 }
 
-func formatDivisionProgress(dp models.DivisionProgress) map[string]interface{} {
+func FormatDivisionProgress(dp models.DivisionProgress) map[string]interface{} {
 	return map[string]interface{}{
 		"divisiKode":     dp.DivisiKode,
 		"divisiNama":     dp.DivisiNama,
@@ -263,7 +258,7 @@ func formatDivisionProgress(dp models.DivisionProgress) map[string]interface{} {
 	}
 }
 
-func formatProject(project models.Project) map[string]interface{} {
+func FormatProject(project models.Project) map[string]interface{} {
 	divisions := make([]int, len(project.Divisions))
 	for i, d := range project.Divisions {
 		divisions[i] = d.DivisiKode
@@ -274,7 +269,7 @@ func formatProject(project models.Project) map[string]interface{} {
 	}
 	histories := make([]map[string]interface{}, len(project.StageHistory))
 	for i, h := range project.StageHistory {
-		histories[i] = formatProjectStageHistory(h)
+		histories[i] = FormatProjectStageHistory(h)
 	}
 
 	stage := project.Stage
@@ -294,7 +289,7 @@ func formatProject(project models.Project) map[string]interface{} {
 		"status":           string(project.Status),
 		"stage":            stage,
 		"stageVersion":     stageVersion,
-		"createdAt":        formatTime(project.CreatedAt),
+		"createdAt":        FormatTime(project.CreatedAt),
 		"divisions":        divisions,
 		"leaders":          leaders,
 		"stageHistory":     histories,
@@ -302,20 +297,20 @@ func formatProject(project models.Project) map[string]interface{} {
 	}
 }
 
-func formatProjectWithDetails(project models.Project, divProgress []models.DivisionProgress) map[string]interface{} {
-	m := formatProject(project)
+func FormatProjectWithDetails(project models.Project, divProgress []models.DivisionProgress) map[string]interface{} {
+	m := FormatProject(project)
 	dpList := make([]map[string]interface{}, len(divProgress))
 	for i, dp := range divProgress {
-		dpList[i] = formatDivisionProgress(dp)
+		dpList[i] = FormatDivisionProgress(dp)
 	}
 	m["divisionProgress"] = dpList
 	return m
 }
 
-func formatProjects(projects []models.Project) []map[string]interface{} {
+func FormatProjects(projects []models.Project) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(projects))
 	for i, p := range projects {
-		result[i] = formatProject(p)
+		result[i] = FormatProject(p)
 	}
 	return result
 }

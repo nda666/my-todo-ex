@@ -1,14 +1,15 @@
-package graph
+package user
 
 import (
 	"golang-todo/internal/auth"
+	"golang-todo/internal/graph/helpers"
 	"golang-todo/internal/models"
 	"golang-todo/internal/repository"
 
 	"github.com/graphql-go/graphql"
 )
 
-func authMutationFields(repos *repository.Repositories, authService *auth.Service, t *Types) graphql.Fields {
+func MutationFields(repos *repository.Repositories, authService *auth.Service, t *Types) graphql.Fields {
 	return graphql.Fields{
 		"login": &graphql.Field{
 			Type: t.AuthPayloadType,
@@ -39,7 +40,7 @@ func authMutationFields(repos *repository.Repositories, authService *auth.Servic
 					avatarURL = custom
 				}
 
-				user := models.User{
+				u := models.User{
 					Kodeku: claims.Kodeku, Username: claims.Username, AvatarURL: avatarURL,
 					Pegawai: &models.Pegawai{
 						Kode: claims.PegawaiKode, Nama: claims.Fullname, KodeDivisi: claims.KodeDivisi,
@@ -47,7 +48,7 @@ func authMutationFields(repos *repository.Repositories, authService *auth.Servic
 						Divisi: &models.Divisi{Kode: claims.KodeDivisi, Nama: claims.NamaDivisi},
 					},
 				}
-				return map[string]interface{}{"token": token, "user": formatUser(user)}, nil
+				return map[string]interface{}{"token": token, "user": helpers.FormatUser(u)}, nil
 			},
 		},
 	}

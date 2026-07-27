@@ -1,15 +1,17 @@
-package graph
+package project
 
 import (
 	"strconv"
 
 	"golang-todo/internal/auth"
+	"golang-todo/internal/graph/helpers"
+	"golang-todo/internal/graph/task"
 	"golang-todo/internal/repository"
 
 	"github.com/graphql-go/graphql"
 )
 
-func projectQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
+func QueryFields(repos *repository.Repositories, t *Types, taskTypes *task.Types) graphql.Fields {
 	return graphql.Fields{
 		"projects": &graphql.Field{
 			Type: graphql.NewList(graphql.NewNonNull(t.ProjectType)),
@@ -22,7 +24,7 @@ func projectQueryFields(repos *repository.Repositories, t *Types) graphql.Fields
 				if err != nil {
 					return nil, err
 				}
-				return formatProjects(projects), nil
+				return helpers.FormatProjects(projects), nil
 			},
 		},
 
@@ -35,16 +37,16 @@ func projectQueryFields(repos *repository.Repositories, t *Types) graphql.Fields
 				if _, err := auth.RequireUser(p.Context); err != nil {
 					return nil, err
 				}
-				id, err := parseID(p.Args["id"])
+				id, err := helpers.ParseID(p.Args["id"])
 				if err != nil {
 					return nil, err
 				}
-				project, err := repos.Project.FindByID(p.Context, id)
+				prj, err := repos.Project.FindByID(p.Context, id)
 				if err != nil {
 					return nil, err
 				}
 				divProgress, _ := repos.Project.GetDivisionProgress(p.Context, id)
-				return formatProjectWithDetails(*project, divProgress), nil
+				return helpers.FormatProjectWithDetails(*prj, divProgress), nil
 			},
 		},
 
@@ -57,7 +59,7 @@ func projectQueryFields(repos *repository.Repositories, t *Types) graphql.Fields
 				if _, err := auth.RequireUser(p.Context); err != nil {
 					return nil, err
 				}
-				id, err := parseID(p.Args["projectId"])
+				id, err := helpers.ParseID(p.Args["projectId"])
 				if err != nil {
 					return nil, err
 				}
@@ -67,14 +69,14 @@ func projectQueryFields(repos *repository.Repositories, t *Types) graphql.Fields
 				}
 				result := make([]map[string]interface{}, len(progress))
 				for i, dp := range progress {
-					result[i] = formatDivisionProgress(dp)
+					result[i] = helpers.FormatDivisionProgress(dp)
 				}
 				return result, nil
 			},
 		},
 
 		"projectTasks": &graphql.Field{
-			Type: t.TaskConnectionType,
+			Type: taskTypes.TaskConnectionType,
 			Args: graphql.FieldConfigArgument{
 				"projectId": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
 				"limit":     &graphql.ArgumentConfig{Type: graphql.Int},
@@ -85,7 +87,7 @@ func projectQueryFields(repos *repository.Repositories, t *Types) graphql.Fields
 				if err != nil {
 					return nil, err
 				}
-				projectID, err := parseID(p.Args["projectId"])
+				projectID, err := helpers.ParseID(p.Args["projectId"])
 				if err != nil {
 					return nil, err
 				}
@@ -116,7 +118,7 @@ func projectQueryFields(repos *repository.Repositories, t *Types) graphql.Fields
 				}
 
 				return map[string]interface{}{
-					"tasks":      formatTasks(tasks, claims.Kodeku),
+					"tasks":      helpers.FormatTasks(tasks, claims.Kodeku),
 					"nextCursor": nextCursor,
 					"hasMore":    hasMore,
 				}, nil

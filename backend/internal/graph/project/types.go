@@ -1,4 +1,4 @@
-package graph
+package project
 
 import (
 	"golang-todo/internal/models"
@@ -6,14 +6,14 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-type projectTypes struct {
+type Types struct {
 	ProjectStageEnum        *graphql.Enum
 	ProjectStageHistoryType *graphql.Object
 	DivisionProgressType    *graphql.Object
 	ProjectType             *graphql.Object
 }
 
-func buildProjectTypes() projectTypes {
+func BuildTypes() *Types {
 	projectStageEnum := graphql.NewEnum(graphql.EnumConfig{
 		Name: "ProjectStage",
 		Values: graphql.EnumValueConfigMap{
@@ -68,7 +68,7 @@ func buildProjectTypes() projectTypes {
 		},
 	})
 
-	return projectTypes{
+	return &Types{
 		ProjectStageEnum:        projectStageEnum,
 		ProjectStageHistoryType: projectStageHistoryType,
 		DivisionProgressType:    divisionProgressType,

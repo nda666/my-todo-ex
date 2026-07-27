@@ -1,10 +1,10 @@
-package graph
+package user
 
 import (
 	"github.com/graphql-go/graphql"
 )
 
-type userTypes struct {
+type Types struct {
 	JabatanType         *graphql.Object
 	DivisiType          *graphql.Object
 	DivisionSummaryType *graphql.Object
@@ -14,7 +14,7 @@ type userTypes struct {
 	AuthPayloadType     *graphql.Object
 }
 
-func buildUserTypes() userTypes {
+func BuildTypes() *Types {
 	jabatanType := graphql.NewObject(graphql.ObjectConfig{
 		Name: "Jabatan",
 		Fields: graphql.Fields{
@@ -85,7 +85,7 @@ func buildUserTypes() userTypes {
 		},
 	})
 
-	return userTypes{
+	return &Types{
 		JabatanType:         jabatanType,
 		DivisiType:          divisiType,
 		DivisionSummaryType: divisionSummaryType,

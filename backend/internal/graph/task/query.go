@@ -1,4 +1,4 @@
-package graph
+package task
 
 import (
 	"strconv"
@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"golang-todo/internal/auth"
+	"golang-todo/internal/graph/helpers"
 	"golang-todo/internal/repository"
 
 	"github.com/graphql-go/graphql"
 )
 
-func taskQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
+func QueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 	return graphql.Fields{
 		"tasks": &graphql.Field{
 			Type: t.TaskConnectionType,
@@ -70,7 +71,6 @@ func taskQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if userKode, ok := p.Args["userKode"].(string); ok && userKode != "" {
 					opts.UserKode = &userKode
 				} else {
-					// scope ke divisi sendiri
 					members, err := repos.Pegawai.FindByDivisi(p.Context, claims.ExternalToken, claims.KodeDivisi)
 					if err != nil {
 						opts.UserKode = &claims.Kodeku
@@ -98,7 +98,7 @@ func taskQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				}
 
 				return map[string]interface{}{
-					"tasks":      formatTasks(tasks, claims.Kodeku),
+					"tasks":      helpers.FormatTasks(tasks, claims.Kodeku),
 					"nextCursor": nextCursor,
 					"hasMore":    hasMore,
 				}, nil

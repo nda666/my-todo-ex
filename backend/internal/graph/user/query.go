@@ -1,14 +1,15 @@
-package graph
+package user
 
 import (
 	"golang-todo/internal/auth"
+	"golang-todo/internal/graph/helpers"
 	"golang-todo/internal/models"
 	"golang-todo/internal/repository"
 
 	"github.com/graphql-go/graphql"
 )
 
-func userQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
+func QueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 	return graphql.Fields{
 		"me": &graphql.Field{
 			Type: t.UserType,
@@ -30,7 +31,7 @@ func userQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 					avatarURL = custom
 				}
 
-				user := models.User{
+				u := models.User{
 					Kodeku:    claims.Kodeku,
 					Username:  claims.Username,
 					AvatarURL: avatarURL,
@@ -43,7 +44,7 @@ func userQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 						Divisi:       &models.Divisi{Kode: claims.KodeDivisi, Nama: claims.NamaDivisi},
 					},
 				}
-				return formatUser(user), nil
+				return helpers.FormatUser(u), nil
 			},
 		},
 
@@ -60,7 +61,7 @@ func userQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				}
 				result := make([]map[string]interface{}, len(members))
 				for i, m := range members {
-					result[i] = formatColleague(m)
+					result[i] = helpers.FormatColleague(m)
 				}
 				return result, nil
 			},
@@ -89,7 +90,7 @@ func userQueryFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				}
 				result := make([]map[string]interface{}, len(members))
 				for i, m := range members {
-					result[i] = formatColleague(m)
+					result[i] = helpers.FormatColleague(m)
 				}
 				return result, nil
 			},

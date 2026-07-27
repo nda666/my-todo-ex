@@ -1,4 +1,4 @@
-package graph
+package task
 
 import (
 	"golang-todo/internal/models"
@@ -6,12 +6,7 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-var (
-	// Package-level var for recursive TaskComment type
-	taskCommentType *graphql.Object
-)
-
-type taskTypes struct {
+type Types struct {
 	TaskStatusEnum             *graphql.Enum
 	SubtaskStatusEnum          *graphql.Enum
 	MetaTypeEnum               *graphql.Enum
@@ -29,7 +24,7 @@ type taskTypes struct {
 	CommentAttachmentInputType *graphql.InputObject
 }
 
-func buildTaskTypes() taskTypes {
+func BuildTypes() *Types {
 	taskStatusEnum := graphql.NewEnum(graphql.EnumConfig{
 		Name: "TaskStatus",
 		Values: graphql.EnumValueConfigMap{
@@ -130,6 +125,7 @@ func buildTaskTypes() taskTypes {
 		},
 	})
 
+	var taskCommentType *graphql.Object
 	taskCommentType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "TaskComment",
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
@@ -226,7 +222,7 @@ func buildTaskTypes() taskTypes {
 		},
 	})
 
-	return taskTypes{
+	return &Types{
 		TaskStatusEnum:             taskStatusEnum,
 		SubtaskStatusEnum:          subtaskStatusEnum,
 		MetaTypeEnum:               metaTypeEnum,

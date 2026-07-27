@@ -1,17 +1,17 @@
-package graph
+package dora
 
 import (
 	"github.com/graphql-go/graphql"
 )
 
-type doraTypes struct {
+type Types struct {
 	DoraResponseType        *graphql.Object
 	DoraTaskItemType        *graphql.Object
 	DoraSuggestedActionType *graphql.Object
 	DoraMessageInputType    *graphql.InputObject
 }
 
-func buildDoraTypes() doraTypes {
+func BuildTypes() *Types {
 	doraMessageInputType := graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "DoraMessageInput",
 		Fields: graphql.InputObjectConfigFieldMap{
@@ -61,7 +61,7 @@ func buildDoraTypes() doraTypes {
 		},
 	})
 
-	return doraTypes{
+	return &Types{
 		DoraResponseType:        doraResponseType,
 		DoraTaskItemType:        doraTaskItemType,
 		DoraSuggestedActionType: doraSuggestedActionType,

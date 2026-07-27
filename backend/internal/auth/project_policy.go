@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"fmt"
 
+	"golang-todo/internal/models"
 	"golang-todo/internal/repository"
 )
 
@@ -24,6 +26,19 @@ func NewProjectPolicy(projects repository.ProjectRepository, pegawai repository.
 // CanCreateProject: hanya leader divisi yang boleh membuat project baru.
 func (p *ProjectPolicy) CanCreateProject(actor ActorContext) bool {
 	return actor.IsDivisionLeader
+}
+
+// CanTransitionStage: hanya owner division leader atau project leader yang boleh transition stage project.
+func (p *ProjectPolicy) CanTransitionStage(actor ActorContext, project models.Project, newStage models.ProjectStage) error {
+	if project.OwnerDivisiKode == actor.DivisiKode && actor.IsDivisionLeader {
+		return nil
+	}
+	for _, l := range project.Leaders {
+		if l.PegawaiKode == actor.Kodeku {
+			return nil
+		}
+	}
+	return fmt.Errorf("unauthorized: only division leader or project leader can update project stage")
 }
 
 // CanInviteDivision: hanya project leader ATAU leader divisi pemilik yang boleh invite divisi lain.
