@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"golang-todo/internal/models"
-
 	"gorm.io/gorm"
 )
 
