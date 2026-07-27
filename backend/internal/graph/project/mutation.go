@@ -57,9 +57,41 @@ func MutationFields(repos *repository.Repositories, projectPolicy *auth.ProjectP
 					}
 				}
 
-				prj, err := repos.Project.Create(p.Context, name, desc, claims.KodeDivisi, divisions, leaders, claims.Kodeku)
-				if err != nil {
+				var projDivisions []models.ProjectDivision
+				for _, d := range divisions {
+					projDivisions = append(projDivisions, models.ProjectDivision{
+						DivisiKode: d,
+						InvitedBy:  claims.Kodeku,
+					})
+				}
+
+				var projLeaders []models.ProjectLeader
+				for _, l := range leaders {
+					projLeaders = append(projLeaders, models.ProjectLeader{
+						PegawaiKode: l,
+						AddedBy:     claims.Kodeku,
+					})
+				}
+
+				prj := &models.Project{
+					Name:            name,
+					Description:     desc,
+					OwnerDivisiKode: claims.KodeDivisi,
+					Status:          models.ProjectStatusActive,
+					Stage:           models.ProjectStagePlanning,
+					StageVersion:    1,
+					CreatedBy:       claims.Kodeku,
+					Divisions:       projDivisions,
+					Leaders:         projLeaders,
+				}
+
+				if err := repos.Project.Create(p.Context, prj); err != nil {
 					return nil, err
+				}
+
+				fetchedPrj, err := repos.Project.FindByID(p.Context, prj.ID)
+				if err == nil {
+					prj = fetchedPrj
 				}
 
 				divProgress, _ := repos.Project.GetDivisionProgress(p.Context, prj.ID)
