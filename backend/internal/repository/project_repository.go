@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"golang-todo/internal/models"
+
 	"gorm.io/gorm"
 )
 
@@ -27,6 +28,7 @@ type ProjectRepository interface {
 	GetStageHistory(ctx context.Context, projectID uint) ([]models.ProjectStageHistory, error)
 	GetDivisionProgress(ctx context.Context, projectID uint) ([]models.DivisionProgress, error)
 	CountIncompleteTasks(ctx context.Context, projectID uint) (int64, error)
+	DetachTask(ctx context.Context, projectID uint, taskID uint) error
 }
 
 type projectRepository struct {
@@ -340,4 +342,10 @@ func (r *projectRepository) GetDivisionProgress(ctx context.Context, projectID u
 	}
 
 	return results, nil
+}
+
+func (r *projectRepository) DetachTask(ctx context.Context, projectID uint, taskID uint) error {
+	return r.db.WithContext(ctx).
+		Where("project_id = ? AND task_id = ?", projectID, taskID).
+		Delete(&models.ProjectTask{}).Error
 }

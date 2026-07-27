@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"golang-todo/internal/models"
 
-	
+	"golang-todo/internal/models"
 	"golang-todo/internal/repository"
 )
 
@@ -50,8 +49,8 @@ func TestProjectPolicy(t *testing.T) {
 
 	// Setup mock data
 	mockRepo.projects[1] = &models.Project{
-		ID:               1,
-		Title:            "Project Alpha",
+		ID:              1,
+		Name:            "Project Alpha",
 		OwnerDivisiKode: 10,
 	}
 	// Project Leader for project 1: PEG-999
