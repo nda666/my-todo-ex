@@ -38,92 +38,58 @@ func MutationFields(repos *repository.Repositories, aiClient ai.Client, t *Types
 				}
 
 				userContext := ai.UserContext{
-					Kodeku:           claims.Kodeku,
-					Username:         claims.Username,
-					Fullname:         claims.Fullname,
-					KodeDivisi:       claims.KodeDivisi,
-					NamaDivisi:       claims.NamaDivisi,
-					PegawaiKode:      claims.PegawaiKode,
-					IsDivisionLeader: isLeader,
-					JabatanNama:      jabatanNama,
+					Kodeku:     claims.Kodeku,
+					Nama:       claims.Fullname,
+					Jabatan:    jabatanNama,
+					DivisiNama: claims.NamaDivisi,
+					IsLeader:   isLeader,
 				}
 
-				var colleagues []ai.ColleagueContext
+				var teamMembers []ai.TeamMember
 				if isLeader {
 					if members, err := repos.Pegawai.FindByDivisi(p.Context, claims.ExternalToken, claims.KodeDivisi); err == nil {
-						colleagues = make([]ai.ColleagueContext, 0, len(members))
+						teamMembers = make([]ai.TeamMember, 0, len(members))
 						for _, m := range members {
-							jName := ""
-							if m.Jabatan != nil {
-								jName = m.Jabatan.Nama
-							}
-							colleagues = append(colleagues, ai.ColleagueContext{
-								Kodeku:      strconv.Itoa(m.Kode),
-								Nama:        m.Nama,
-								JabatanNama: jName,
+							teamMembers = append(teamMembers, ai.TeamMember{
+								Kodeku: strconv.Itoa(m.Kode),
+								Nama:   m.Nama,
 							})
 						}
 					}
 				}
 
-				var divisions []ai.DivisionContext
+				var divisions []ai.DivisionInfo
 				if divisionsList, err := repos.Divisi.List(p.Context, claims.ExternalToken); err == nil {
-					divisions = make([]ai.DivisionContext, 0, len(divisionsList))
+					divisions = make([]ai.DivisionInfo, 0, len(divisionsList))
 					for _, d := range divisionsList {
-						divisions = append(divisions, ai.DivisionContext{
+						divisions = append(divisions, ai.DivisionInfo{
 							Kode: d.Kode,
 							Nama: d.Nama,
 						})
 					}
 				}
 
-				allDivsTasks, _ := repos.Task.CountByAllDivisions(p.Context)
-				doraTasks, err := repos.Task.FindDoraTasksContext(p.Context, claims.Kodeku, claims.KodeDivisi, isLeader)
-				if err != nil {
-					return nil, err
-				}
-
-				taskContexts := make([]ai.TaskContext, len(doraTasks))
-				for i, tsk := range doraTasks {
-					taskContexts[i] = ai.TaskContext{
-						ID:             strconv.FormatUint(uint64(tsk.ID), 10),
-						Title:          tsk.Title,
-						Description:    tsk.Description,
-						Status:         string(tsk.Status),
-						AssigneeKodeku: tsk.UserKode,
-						CreatedBy:      tsk.CreatedBy,
-						CreatedAt:      tsk.CreatedAt.Format("2006-01-02"),
-					}
-				}
-
-				doraProjects, _ := repos.Project.FindDoraProjectsContext(p.Context, claims.KodeDivisi)
-				projectContexts := make([]ai.ProjectContext, len(doraProjects))
-				for i, prj := range doraProjects {
-					projectContexts[i] = ai.ProjectContext{
-						ID:              strconv.FormatUint(uint64(prj.ID), 10),
-						Name:            prj.Name,
-						Description:     prj.Description,
-						Stage:           string(prj.Stage),
-						Status:          string(prj.Status),
-						OwnerDivisiKode: prj.OwnerDivisiKode,
-					}
-				}
-
 				message := p.Args["message"].(string)
 				sessionID := p.Args["sessionId"].(string)
 
+				today := time.Now().Format("2006-01-02")
+				systemPrompt := ai.BuildSystemPrompt(userContext, teamMembers, divisions, today)
+
 				history := doraSessions.History(sessionID)
 
-				doraPrompt := ai.BuildDoraPrompt(userContext, colleagues, taskContexts, divisions, projectContexts, history, message, allDivsTasks)
+				messages := make([]ai.ChatMessage, 0, len(history)+2)
+				messages = append(messages, ai.ChatMessage{Role: "system", Content: systemPrompt})
+				messages = append(messages, history...)
+				messages = append(messages, ai.ChatMessage{Role: "user", Content: message})
 
-				replyText, err := aiClient.GenerateText(p.Context, doraPrompt)
+				replyText, err := aiClient.Complete(p.Context, messages, sessionID)
 				if err != nil {
 					return nil, fmt.Errorf("AI error: %w", err)
 				}
 
-				reply, action := ai.ParseDoraResponse(replyText)
+				cleanReply, action := ai.ExtractAction(replyText)
 
-				doraSessions.Append(sessionID, message, reply)
+				doraSessions.Append(sessionID, ai.ChatMessage{Role: "user", Content: message}, ai.ChatMessage{Role: "assistant", Content: replyText})
 
 				var suggestedAction map[string]interface{}
 				if action != nil {
@@ -165,7 +131,7 @@ func MutationFields(repos *repository.Repositories, aiClient ai.Client, t *Types
 				}
 
 				return map[string]interface{}{
-					"reply":           reply,
+					"reply":           cleanReply,
 					"suggestedAction": suggestedAction,
 				}, nil
 			},

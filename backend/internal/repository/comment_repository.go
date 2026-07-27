@@ -12,6 +12,7 @@ type CommentRepository interface {
 	Create(ctx context.Context, comment *models.TaskComment) error
 	CreateAttachment(ctx context.Context, attachment *models.CommentAttachment) error
 	FindByID(ctx context.Context, id uint) (*models.TaskComment, error)
+	Delete(ctx context.Context, id uint, userKode string) (bool, error)
 }
 
 type commentRepository struct {
@@ -43,4 +44,14 @@ func (r *commentRepository) FindByID(ctx context.Context, id uint) (*models.Task
 		return nil, err
 	}
 	return &comment, nil
+}
+
+func (r *commentRepository) Delete(ctx context.Context, id uint, userKode string) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND user_kode = ?", id, userKode).
+		Delete(&models.TaskComment{})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
 }

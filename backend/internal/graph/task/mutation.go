@@ -403,8 +403,11 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 					return nil, err
 				}
 
-				subtask, err := repos.Subtask.FindOwned(p.Context, id, claims.Kodeku)
+				subtask, err := repos.Subtask.FindByID(p.Context, id)
 				if err != nil {
+					return nil, err
+				}
+				if _, err := repos.Task.FindOwned(p.Context, subtask.TaskID, claims.Kodeku); err != nil {
 					return nil, err
 				}
 
@@ -416,9 +419,10 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 					subtask.Status = v.(models.SubtaskStatus)
 				}
 
-				if err := repos.Subtask.Save(p.Context, subtask); err != nil {
+				if err := repos.Subtask.Update(p.Context, subtask); err != nil {
 					return nil, err
 				}
+				_, _ = repos.Subtask.CheckAndUpdateParentTaskCompletion(p.Context, subtask.TaskID)
 				return helpers.FormatSubtask(*subtask), nil
 			},
 		},
@@ -438,11 +442,19 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 					return nil, err
 				}
 
-				deleted, err := repos.Subtask.Delete(p.Context, id, claims.Kodeku)
+				subtask, err := repos.Subtask.FindByID(p.Context, id)
 				if err != nil {
 					return nil, err
 				}
-				return deleted, nil
+				if _, err := repos.Task.FindOwned(p.Context, subtask.TaskID, claims.Kodeku); err != nil {
+					return false, err
+				}
+
+				if err := repos.Subtask.Delete(p.Context, id); err != nil {
+					return false, err
+				}
+				_, _ = repos.Subtask.CheckAndUpdateParentTaskCompletion(p.Context, subtask.TaskID)
+				return true, nil
 			},
 		},
 
@@ -475,7 +487,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 					}
 				}
 
-				if err := repos.Subtask.Reorder(p.Context, taskID, orderedIDs); err != nil {
+				if _, err := repos.Subtask.Reorder(p.Context, taskID, orderedIDs); err != nil {
 					return false, err
 				}
 				return true, nil
@@ -513,8 +525,13 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				}
 
 				content := p.Args["content"].(string)
-				comment, err := repos.Comment.Create(p.Context, taskID, claims.Kodeku, content, parentIDPtr)
-				if err != nil {
+				comment := &models.TaskComment{
+					TaskID:   taskID,
+					UserKode: claims.Kodeku,
+					Content:  content,
+					ParentID: parentIDPtr,
+				}
+				if err := repos.Comment.Create(p.Context, comment); err != nil {
 					return nil, err
 				}
 
@@ -527,9 +544,11 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 						url := m["url"].(string)
 						fileName := m["fileName"].(string)
 						fileType := helpers.StrVal(m["fileType"])
-						sizeBytes := 0
+						var sizeBytes int64 = 0
 						if sb, ok := m["sizeBytes"].(int); ok {
-							sizeBytes = sb
+							sizeBytes = int64(sb)
+						} else if sb, ok := m["sizeBytes"].(float64); ok {
+							sizeBytes = int64(sb)
 						}
 
 						att := &models.CommentAttachment{
@@ -539,7 +558,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 							FileType:  fileType,
 							SizeBytes: sizeBytes,
 						}
-						_ = repos.Comment.AddAttachment(p.Context, att)
+						_ = repos.Comment.CreateAttachment(p.Context, att)
 					}
 					refreshed, err := repos.Comment.FindByID(p.Context, comment.ID)
 					if err == nil {
@@ -568,7 +587,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				}
 				emoji := p.Args["emoji"].(string)
 
-				if err := repos.Comment.ToggleReaction(p.Context, commentID, claims.Kodeku, emoji); err != nil {
+				if err := repos.Reaction.Toggle(p.Context, commentID, claims.Kodeku, emoji); err != nil {
 					return nil, err
 				}
 
