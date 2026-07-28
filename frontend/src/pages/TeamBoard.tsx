@@ -29,16 +29,31 @@ import {
     DashboardOutlined,
     PlusOutlined,
     RedoOutlined,
+    RobotOutlined,
+    RocketOutlined,
     SearchOutlined,
     SwapOutlined,
+    ThunderboltOutlined,
     UserOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery } from '@apollo/client';
+import {
+    closestCenter,
+    DndContext,
+    DragEndEvent,
+    DragOverlay,
+    DragStartEvent,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
 
 import CreateTaskModal from '../components/CreateTaskModal';
+import DragTaskPreview from '../components/DragTaskPreview';
 import TeamBoardColumn from '../components/TeamBoardColumn';
 import { CAPACITY_LIMIT_PER_MEMBER, getWorkloadInfo, MemberWorkloadInfo } from '../components/WorkloadCapacityWidget';
 import { useAuth } from '../contexts/AuthContext';
+import { ASK_DORA } from '../graphql/dora';
 import { useTeamHeader } from '../layouts/TeamLayout';
 import { CREATE_TASK, GET_COLLEAGUES_BY_DIVISI, GET_TASKS, UPDATE_TASK } from '../lib/queries';
 import { Colleague, Task } from '../types/task';
@@ -81,6 +96,61 @@ export default function TeamBoard() {
 
     const [createTaskMutation, { loading: creatingTask }] = useMutation(CREATE_TASK);
     const [updateTaskMutation] = useMutation(UPDATE_TASK);
+
+    // AI Workload Advisor State
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    const [aiAnalysisResult, setAiAnalysisResult] = useState<string | null>(null);
+    const [executingAiTaskId, setExecutingAiTaskId] = useState<string | null>(null);
+    const [askDoraMutation, { loading: isAiAnalyzing }] = useMutation(ASK_DORA);
+
+    // Drag and Drop state
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+    const [draggingTask, setDraggingTask] = useState<Task | null>(null);
+
+    const handleBoardDragStart = (event: DragStartEvent) => {
+        const t = teamTasks.find((item) => item.id === String(event.active.id));
+        if (t) setDraggingTask(t);
+    };
+
+    const handleBoardDragEnd = async (event: DragEndEvent) => {
+        setDraggingTask(null);
+        const { active, over } = event;
+        if (!over) return;
+
+        const activeTaskId = String(active.id);
+        const activeTask = teamTasks.find((t) => t.id === activeTaskId);
+        if (!activeTask) return;
+
+        let targetUserKode: string | null = null;
+        const overIdStr = String(over.id);
+
+        if (overIdStr.startsWith('member-col-')) {
+            targetUserKode = overIdStr.replace('member-col-', '');
+        } else if (over.data.current?.userKode) {
+            targetUserKode = over.data.current.userKode;
+        } else {
+            const overTask = teamTasks.find((t) => t.id === overIdStr);
+            if (overTask) targetUserKode = overTask.userKode || null;
+        }
+
+        if (targetUserKode && targetUserKode !== activeTask.userKode) {
+            const targetMember = members.find((m) => m.kodeku === targetUserKode);
+            try {
+                await updateTaskMutation({
+                    variables: {
+                        id: activeTask.id,
+                        input: { targetUserKode },
+                    },
+                });
+                message.success(
+                    `Task "${activeTask.title}" berhasil dialihkan ke ${targetMember?.nama || targetUserKode}`
+                );
+                refetchTasks();
+            } catch (err: any) {
+                message.error(err.message || 'Gagal memindahkan task');
+            }
+        }
+    };
 
     // Compute workload per member
     const workloadList: MemberWorkloadInfo[] = useMemo(() => {
@@ -147,6 +217,95 @@ export default function TeamBoard() {
             overallTeamUtilization,
         };
     }, [workloadList]);
+
+    // Compute AI Smart Reassignment Proposals algorithmically
+    const aiReassignmentProposals = useMemo(() => {
+        const proposals: Array<{
+            taskId: string;
+            taskTitle: string;
+            fromMember: Colleague;
+            toMember: Colleague;
+            reason: string;
+        }> = [];
+
+        const overloadedMembers = workloadList.filter((w) => w.level === 'OVERLOADED' || w.level === 'HEAVY');
+        const availableMembers = workloadList.filter((w) => w.level === 'LIGHT' || w.level === 'OPTIMAL');
+
+        if (overloadedMembers.length === 0 || availableMembers.length === 0) return proposals;
+
+        const sortedAvailable = [...availableMembers].sort((a, b) => a.activeTasks - b.activeTasks);
+
+        let targetIdx = 0;
+        for (const overloaded of overloadedMembers) {
+            const activeTasksToConsider = overloaded.userTasks.filter((t) => t.status === 'PENDING' || t.status === 'IN_PROGRESS');
+            if (activeTasksToConsider.length > 0) {
+                const taskToMove = activeTasksToConsider[0];
+                const recipient = sortedAvailable[targetIdx % sortedAvailable.length];
+
+                proposals.push({
+                    taskId: taskToMove.id,
+                    taskTitle: taskToMove.title,
+                    fromMember: overloaded.member,
+                    toMember: recipient.member,
+                    reason: `${overloaded.member.nama} (${overloaded.activeTasks} task aktif) dialihkan ke ${recipient.member.nama} (${recipient.activeTasks} task) untuk mencegah kelesuan & burnout.`,
+                });
+
+                targetIdx++;
+            }
+        }
+
+        return proposals;
+    }, [workloadList]);
+
+    const handleRunAiAnalysis = async () => {
+        setIsAiModalOpen(true);
+        if (aiAnalysisResult) return;
+
+        try {
+            const payloadSummary = workloadList.map((w) => ({
+                nama: w.member.nama,
+                statusKapasitas: w.levelLabel,
+                activeTasksCount: w.activeTasks,
+                completedTasksCount: w.completedTasks,
+            }));
+
+            const promptMessage = `Berikan analisis beban kerja tim divisi singkat & strategi penyeimbangan tugas (maksimal 2 paragraf padat + 3 poin saran tindakan):
+- Anggota Tim: ${JSON.stringify(payloadSummary)}
+- Utilisasi Tim Divisi: ${summary.overallTeamUtilization}%
+- Anggota Overloaded: ${summary.overloadedCount} orang`;
+
+            const res = await askDoraMutation({
+                variables: {
+                    message: promptMessage,
+                    sessionId: `workload_advisor_${Date.now()}`,
+                },
+            });
+
+            if (res.data?.askDora?.reply) {
+                setAiAnalysisResult(res.data.askDora.reply);
+            }
+        } catch (err) {
+            setAiAnalysisResult('Gagal menghubungi AI Assistant. Anda tetap dapat menggunakan rekomendasi redistribusi tugas berbasis AI di bawah.');
+        }
+    };
+
+    const handleApplyAiReassign = async (taskId: string, targetKode: string) => {
+        setExecutingAiTaskId(taskId);
+        try {
+            await updateTaskMutation({
+                variables: {
+                    id: taskId,
+                    input: { targetUserKode: targetKode },
+                },
+            });
+            message.success('Rekomendasi AI berhasil diterapkan!');
+            refetchTasks();
+        } catch (err: any) {
+            message.error(err.message || 'Gagal memindahkan task');
+        } finally {
+            setExecutingAiTaskId(null);
+        }
+    };
 
     // Filter members based on capacity filter and search query
     const filteredMembers = useMemo(() => {
@@ -232,7 +391,15 @@ export default function TeamBoard() {
                         </Text>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                            type="primary"
+                            icon={<RobotOutlined />}
+                            onClick={handleRunAiAnalysis}
+                            className="!bg-gradient-to-r !from-indigo-600 !to-blue-600 hover:!from-indigo-500 hover:!to-blue-500 !border-0 text-xs font-semibold rounded-xl shadow-xs"
+                        >
+                            AI Workload Advisor
+                        </Button>
                         <Button
                             size="small"
                             icon={<RedoOutlined />}
@@ -351,88 +518,204 @@ export default function TeamBoard() {
                     />
                 </div>
             ) : (
-                <div className="flex gap-4 overflow-x-auto pb-6" style={{ scrollSnapType: 'x proximity' }}>
-                    {filteredMembers.map((m: Colleague) => {
-                        const wl = workloadList.find((w) => w.member.kodeku === m.kodeku);
-                        const activeCount = wl ? wl.activeTasks : 0;
-                        const levelLabel = wl ? wl.levelLabel : 'Light Capacity';
-                        const tagColor = wl ? (wl.level === 'LIGHT' ? 'green' : wl.level === 'OPTIMAL' ? 'blue' : wl.level === 'HEAVY' ? 'orange' : 'red') : 'green';
-                        const capacityPct = wl ? wl.capacityPercentage : 0;
-                        const levelColor = wl ? wl.levelColor : '#10b981';
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleBoardDragStart}
+                    onDragEnd={handleBoardDragEnd}
+                    onDragCancel={() => setDraggingTask(null)}
+                >
+                    <div className="flex gap-4 overflow-x-auto pb-6" style={{ scrollSnapType: 'x proximity' }}>
+                        {filteredMembers.map((m: Colleague) => {
+                            const wl = workloadList.find((w) => w.member.kodeku === m.kodeku);
+                            const activeCount = wl ? wl.activeTasks : 0;
+                            const levelLabel = wl ? wl.levelLabel : 'Light Capacity';
+                            const tagColor = wl ? (wl.level === 'LIGHT' ? 'green' : wl.level === 'OPTIMAL' ? 'blue' : wl.level === 'HEAVY' ? 'orange' : 'red') : 'green';
+                            const capacityPct = wl ? wl.capacityPercentage : 0;
+                            const levelColor = wl ? wl.levelColor : '#10b981';
 
-                        return (
-                            <div
-                                key={m.kodeku}
-                                style={{ scrollSnapAlign: 'start' }}
-                                className="shrink-0 w-[88vw] max-w-[340px] flex flex-col bg-slate-100/80 dark:bg-slate-900/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs"
-                            >
-                                {/* Column Header - Member Info & Capacity Bar */}
-                                <div className="bg-white dark:bg-slate-800/90 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/80 mb-3 shadow-2xs">
-                                    <div
-                                        onClick={() => navigate(`/teams/${divisiKode}/${m.kodeku}`)}
-                                        className="flex items-center justify-between gap-2 cursor-pointer group"
-                                    >
-                                        <div className="flex items-center gap-2.5 min-w-0">
-                                            <Avatar
-                                                size={34}
-                                                src={m.avatarUrl || undefined}
-                                                icon={!m.avatarUrl && <UserOutlined />}
-                                                className="!bg-blue-500 text-white flex-shrink-0"
-                                            />
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-1 font-semibold text-sm text-slate-800 dark:text-slate-100 group-hover:text-blue-600 truncate">
-                                                    <span className="truncate">{m.nama}</span>
-                                                    {m.statusLeader === 1 && (
-                                                        <CrownFilled className="!text-amber-500 text-xs flex-shrink-0" />
-                                                    )}
+                            return (
+                                <div
+                                    key={m.kodeku}
+                                    style={{ scrollSnapAlign: 'start' }}
+                                    className="shrink-0 w-[88vw] max-w-[340px] flex flex-col bg-slate-100/80 dark:bg-slate-900/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs"
+                                >
+                                    {/* Column Header - Member Info & Capacity Bar */}
+                                    <div className="bg-white dark:bg-slate-800/90 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/80 mb-3 shadow-2xs">
+                                        <div
+                                            onClick={() => navigate(`/teams/${divisiKode}/${m.kodeku}`)}
+                                            className="flex items-center justify-between gap-2 cursor-pointer group"
+                                        >
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <Avatar
+                                                    size={34}
+                                                    src={m.avatarUrl || undefined}
+                                                    icon={!m.avatarUrl && <UserOutlined />}
+                                                    className="!bg-blue-500 text-white flex-shrink-0"
+                                                />
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-1 font-semibold text-sm text-slate-800 dark:text-slate-100 group-hover:text-blue-600 truncate">
+                                                        <span className="truncate">{m.nama}</span>
+                                                        {m.statusLeader === 1 && (
+                                                            <CrownFilled className="!text-amber-500 text-xs flex-shrink-0" />
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[11px] text-slate-400 block truncate">
+                                                        {m.jabatan?.nama || 'Pegawai'}
+                                                    </span>
                                                 </div>
-                                                <span className="text-[11px] text-slate-400 block truncate">
-                                                    {m.jabatan?.nama || 'Pegawai'}
-                                                </span>
+                                            </div>
+
+                                            <Tag color={tagColor} className="m-0 text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
+                                                {levelLabel}
+                                            </Tag>
+                                        </div>
+
+                                        {/* Capacity Progress Bar */}
+                                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                                            <span>Beban Task: <b className="text-slate-700 dark:text-slate-300">{activeCount} / {CAPACITY_LIMIT_PER_MEMBER}</b></span>
+                                            <div className="w-24">
+                                                <Progress percent={capacityPct} showInfo={false} size="small" strokeColor={levelColor} className="m-0" />
+                                            </div>
+
+                                            {isLeader && wl && wl.activeTasks > 0 && (
+                                                <Tooltip title="Rebalance task anggota ini">
+                                                    <Button
+                                                        size="small"
+                                                        type="text"
+                                                        icon={<SwapOutlined />}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setRebalanceMember(wl);
+                                                        }}
+                                                        className="p-0 h-auto text-xs text-blue-500 hover:text-blue-600"
+                                                    />
+                                                </Tooltip>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Column Task List Container */}
+                                    <TeamBoardColumn
+                                        userKode={m.kodeku}
+                                        editable={isLeader || m.kodeku === me?.kodeku}
+                                        members={members}
+                                        onQuickAssign={isLeader ? (uKode) => setQuickAssignUserKode(uKode) : undefined}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <DragOverlay>{draggingTask && <DragTaskPreview task={draggingTask} />}</DragOverlay>
+                </DndContext>
+            )}
+
+            {/* AI Workload Advisor & Optimizer Modal */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold">
+                        <RobotOutlined className="text-lg" />
+                        <span>AI Workload & Capacity Optimizer</span>
+                    </div>
+                }
+                open={isAiModalOpen}
+                onCancel={() => setIsAiModalOpen(false)}
+                footer={null}
+                width={680}
+                className="rounded-2xl overflow-hidden"
+            >
+                <div className="py-2 space-y-4">
+                    {/* Header Banner */}
+                    <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-900 via-slate-900 to-blue-900 text-white shadow-sm flex items-center justify-between">
+                        <div>
+                            <div className="text-xs text-indigo-200 flex items-center gap-1 font-medium">
+                                <ThunderboltOutlined /> Analisis Kapasitas & Rekomendasi Pintar
+                            </div>
+                            <div className="text-lg font-bold mt-0.5">
+                                Status Utilisasi Tim Divisi: {summary.overallTeamUtilization}%
+                            </div>
+                        </div>
+                        <Tag color={summary.overloadedCount > 0 ? 'error' : 'success'} className="px-3 py-1 font-semibold rounded-full m-0 text-xs">
+                            {summary.overloadedCount > 0 ? `${summary.overloadedCount} Member Overloaded` : 'Kapasitas Tim Seimbang'}
+                        </Tag>
+                    </div>
+
+                    {/* AI Analysis Result or Loading Spinner */}
+                    {isAiAnalyzing ? (
+                        <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <Spin size="large" />
+                            <Paragraph className="text-xs text-slate-500 mt-3 mb-0">
+                                Mengontak AI Assistant untuk menganalisis distribusi tugas dan beban kerja anggota divisi...
+                            </Paragraph>
+                        </div>
+                    ) : (
+                        aiAnalysisResult && (
+                            <div className="p-4 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 space-y-2">
+                                <div className="font-semibold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5 mb-1">
+                                    <RocketOutlined className="text-indigo-600 dark:text-indigo-400" /> Executive AI Insight:
+                                </div>
+                                <div className="whitespace-pre-line">{aiAnalysisResult}</div>
+                            </div>
+                        )
+                    )}
+
+                    {/* Auto 1-Click Redistribution Recommendations */}
+                    <div className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between">
+                            <Text className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                <SwapOutlined className="text-blue-500" />
+                                Recommendations Redistribusi Tugas (1-Click Reassign)
+                            </Text>
+                            <Tag color="blue" className="text-[10px] m-0 font-medium">
+                                {aiReassignmentProposals.length} Opsi
+                            </Tag>
+                        </div>
+
+                        {aiReassignmentProposals.length === 0 ? (
+                            <Alert
+                                type="success"
+                                showIcon
+                                message="Beban Kerja Tim Optimal"
+                                description="Seluruh anggota tim divisi berada dalam batas kapasitas ideal. Belum ada rebalancing tugas yang diperlukan saat ini."
+                                className="rounded-xl border-green-200 dark:border-green-900 text-xs"
+                            />
+                        ) : (
+                            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                                {aiReassignmentProposals.map((prop) => (
+                                    <div
+                                        key={prop.taskId}
+                                        className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3 text-xs hover:border-indigo-300 transition-all shadow-xs"
+                                    >
+                                        <div className="min-w-0 space-y-1">
+                                            <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                                                {prop.taskTitle}
+                                            </div>
+                                            <div className="text-slate-500 flex items-center gap-2 text-[11px]">
+                                                <span className="text-red-500 font-medium">{prop.fromMember.nama}</span>
+                                                <SwapOutlined className="text-slate-400 text-[10px]" />
+                                                <span className="text-emerald-600 font-medium">{prop.toMember.nama}</span>
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 italic">
+                                                {prop.reason}
                                             </div>
                                         </div>
 
-                                        <Tag color={tagColor} className="m-0 text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
-                                            {levelLabel}
-                                        </Tag>
+                                        <Button
+                                            type="primary"
+                                            size="small"
+                                            loading={executingAiTaskId === prop.taskId}
+                                            onClick={() => handleApplyAiReassign(prop.taskId, prop.toMember.kodeku)}
+                                            className="!bg-indigo-600 hover:!bg-indigo-500 rounded-lg text-xs flex-shrink-0"
+                                        >
+                                            Pindahkan
+                                        </Button>
                                     </div>
-
-                                    {/* Capacity Progress Bar */}
-                                    <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px] text-slate-500">
-                                        <span>Beban Task: <b className="text-slate-700 dark:text-slate-300">{activeCount} / {CAPACITY_LIMIT_PER_MEMBER}</b></span>
-                                        <div className="w-24">
-                                            <Progress percent={capacityPct} showInfo={false} size="small" strokeColor={levelColor} className="m-0" />
-                                        </div>
-
-                                        {isLeader && wl && wl.activeTasks > 0 && (
-                                            <Tooltip title="Rebalance task anggota ini">
-                                                <Button
-                                                    size="small"
-                                                    type="text"
-                                                    icon={<SwapOutlined />}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setRebalanceMember(wl);
-                                                    }}
-                                                    className="p-0 h-auto text-xs text-blue-500 hover:text-blue-600"
-                                                />
-                                            </Tooltip>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Column Task List Container */}
-                                <TeamBoardColumn
-                                    userKode={m.kodeku}
-                                    editable={isLeader || m.kodeku === me?.kodeku}
-                                    members={members}
-                                    onQuickAssign={isLeader ? (uKode) => setQuickAssignUserKode(uKode) : undefined}
-                                />
+                                ))}
                             </div>
-                        );
-                    })}
+                        )}
+                    </div>
                 </div>
-            )}
+            </Modal>
 
             {/* Quick Assign Modal */}
             <CreateTaskModal

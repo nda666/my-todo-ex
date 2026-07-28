@@ -12,6 +12,7 @@ import {
     DragOverlay,
     DragStartEvent,
     PointerSensor,
+    useDroppable,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
@@ -129,12 +130,22 @@ export default function TeamBoardColumn({
         reorderTasksMutation({ variables: { orderedIds } }).catch((err) => message.error(err.message || 'Gagal mengubah urutan task'))
     }
 
+    const { setNodeRef, isOver } = useDroppable({
+        id: `member-col-${userKode}`,
+        data: { userKode },
+    });
+
     if (loading) {
         return <div className="flex justify-center py-10"><Spin /></div>
     }
 
     return (
-        <div className="max-h-[75vh] overflow-y-auto pr-1">
+        <div
+            ref={setNodeRef}
+            className={`max-h-[75vh] overflow-y-auto pr-1 rounded-xl transition-all duration-200 ${
+                isOver ? 'bg-blue-50/80 dark:bg-blue-950/40 ring-2 ring-blue-500/80' : ''
+            }`}
+        >
             {onQuickAssign && (
                 <Button
                     type="dashed"

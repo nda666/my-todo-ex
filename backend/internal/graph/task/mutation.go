@@ -237,13 +237,8 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 
 				if targetUserVal, ok := input["targetUserKode"]; ok && targetUserVal != nil {
 					newTargetUserKode := targetUserVal.(string)
-					if isLeader || claims.Kodeku == tsk.CreatedBy {
-						targetKode, convErr := strconv.Atoi(newTargetUserKode)
-						if convErr == nil {
-							if _, err := repos.Pegawai.FindByKode(p.Context, claims.ExternalToken, claims.KodeDivisi, targetKode); err == nil {
-								tsk.UserKode = newTargetUserKode
-							}
-						}
+					if isLeader || claims.Kodeku == tsk.CreatedBy || claims.Kodeku == tsk.UserKode {
+						tsk.UserKode = newTargetUserKode
 					}
 				}
 

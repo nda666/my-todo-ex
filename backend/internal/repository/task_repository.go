@@ -130,7 +130,7 @@ func (r *taskRepository) FindOwnedByLeaderOrUser(ctx context.Context, id uint, k
 	var task models.Task
 	query := r.db.WithContext(ctx).Where("id = ?", id)
 	if isLeader && divisiKode > 0 {
-		query = query.Where("(user_kode = ? OR created_by = ? OR divisi_kode = ?)", kodeku, kodeku, divisiKode)
+		query = query.Where("(user_kode = ? OR created_by = ? OR divisi_kode = ? OR divisi_kode IS NULL OR divisi_kode = 0)", kodeku, kodeku, divisiKode)
 	} else {
 		query = query.Where("(user_kode = ? OR created_by = ?)", kodeku, kodeku)
 	}
