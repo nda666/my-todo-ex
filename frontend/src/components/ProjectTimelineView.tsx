@@ -306,26 +306,49 @@ export default function ProjectTimelineView({ tasks, members, onTaskClick }: Pro
                                         </div>
 
                                         {/* Right Side: Gantt Bar Track */}
-                                        <div className="col-span-8 relative h-7 bg-slate-100/60 dark:bg-slate-800/40 rounded-lg overflow-hidden flex items-center px-1">
+                                        <div className="col-span-8 relative h-8 bg-slate-100/80 dark:bg-slate-800/60 rounded-lg overflow-hidden flex items-center px-1">
                                             {/* Bar Element */}
-                                            <div
-                                                style={{
-                                                    left: `${leftOffsetPct}%`,
-                                                    width: `${durationPct}%`,
-                                                }}
-                                                className={`absolute h-5 rounded-md px-2 flex items-center justify-between text-[10px] font-semibold transition-all shadow-sm ${
-                                                    isBlocked
-                                                        ? 'bg-red-500 text-white shadow-red-200 border border-red-600 animate-pulse'
-                                                        : isCompleted
-                                                        ? 'bg-emerald-500 text-white'
-                                                        : task.status === 'IN_PROGRESS'
-                                                        ? 'bg-blue-500 text-white'
-                                                        : 'bg-amber-400 text-slate-900'
-                                                }`}
+                                            <Tooltip
+                                                title={
+                                                    isBlocked ? (
+                                                        <div className="text-xs p-1">
+                                                            <b className="text-red-400 block mb-1">
+                                                                <LockOutlined /> TASK TERHALANG (BLOCKED)
+                                                            </b>
+                                                            <span>Task ini tidak dapat dilanjutkan sebelum task berikut selesai:</span>
+                                                            <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                                                                {depInfo.activeBlockers.map((b) => (
+                                                                    <li key={b.id}>
+                                                                        <b>{b.title}</b> ({b.status})
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : undefined
+                                                }
                                             >
-                                                <span className="truncate pr-1">{startDateStr}</span>
-                                                <span className="truncate">{dueDateStr}</span>
-                                            </div>
+                                                <div
+                                                    style={{
+                                                        left: `${leftOffsetPct}%`,
+                                                        width: `${durationPct}%`,
+                                                    }}
+                                                    className={`absolute h-6 rounded-md px-2 flex items-center justify-between text-[10px] font-semibold transition-all shadow-sm ${
+                                                        isBlocked
+                                                            ? 'bg-gradient-to-r from-red-600 to-red-500 text-white border-2 border-red-600 shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse ring-2 ring-red-400/50'
+                                                            : isCompleted
+                                                            ? 'bg-emerald-500 text-white'
+                                                            : task.status === 'IN_PROGRESS'
+                                                            ? 'bg-blue-500 text-white'
+                                                            : 'bg-amber-400 text-slate-900'
+                                                    }`}
+                                                >
+                                                    <span className="truncate pr-1 flex items-center gap-1">
+                                                        {isBlocked && <LockOutlined className="text-white text-[11px] animate-bounce" />}
+                                                        {startDateStr}
+                                                    </span>
+                                                    <span className="truncate">{dueDateStr}</span>
+                                                </div>
+                                            </Tooltip>
                                         </div>
                                     </div>
                                 );

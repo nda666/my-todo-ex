@@ -67,62 +67,86 @@ export default function TeamBoardTaskCard({
 
     return (
         <>
-            <div className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-400 dark:hover:border-blue-500 shadow-2xs hover:shadow-xs transition-all duration-150 rounded-xl p-3.5 mb-3">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                        <Title level={5} className="!mb-0 font-semibold !text-slate-800 dark:!text-slate-100 truncate">
-                            {task.title}
-                        </Title>
-                        {task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value) && (
-                            <Tag color="red" className="shrink-0 text-[10px] font-bold px-1.5 py-0 rounded flex items-center gap-0.5">
-                                <LockOutlined /> BLOCKED
-                            </Tag>
-                        )}
+            <div
+                className={`bg-white dark:bg-slate-850/90 border transition-all duration-200 rounded-2xl p-4 mb-3.5 shadow-xs hover:shadow-md ${
+                    task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value)
+                        ? 'border-red-300 dark:border-red-900/80 bg-red-50/20 dark:bg-red-950/10'
+                        : 'border-slate-200/90 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500'
+                }`}
+            >
+                {/* Header: Title & Badges */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <Title
+                                level={5}
+                                className="!mb-0 font-bold !text-slate-900 dark:!text-slate-100 text-sm tracking-tight leading-snug truncate"
+                            >
+                                {task.title}
+                            </Title>
+                            {task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value) && (
+                                <Tag color="red" className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 m-0">
+                                    <LockOutlined /> BLOCKED
+                                </Tag>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                        <Tag color={priority.tagColor} className="m-0 text-[10px] font-semibold px-1.5 py-0 rounded">
+                    <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                        <Tag color={priority.tagColor} className="m-0 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                             {priority.label}
                         </Tag>
-                        <Tag color={activeStatus?.color || 'default'} className="m-0 text-[10px]">{activeStatus?.label || task.status}</Tag>
+                        <Tag color={activeStatus?.color || 'default'} className="m-0 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                            {activeStatus?.label || task.status}
+                        </Tag>
                     </div>
                 </div>
 
+                {/* Task Description */}
                 {task.description ? (
-                    <Text className="text-xs !text-slate-500 dark:!text-slate-400 block truncate">{task.description}</Text>
+                    <Text className="text-xs !text-slate-600 dark:!text-slate-300 block line-clamp-2 mb-3 leading-relaxed">
+                        {task.description}
+                    </Text>
                 ) : (
-                    <Text className="text-xs italic !text-slate-400 dark:!text-slate-500 block">Tidak ada deskripsi.</Text>
+                    <Text className="text-xs italic !text-slate-400 dark:!text-slate-500 block mb-3">
+                        Tidak ada deskripsi task.
+                    </Text>
                 )}
 
-                <div className="flex items-center justify-between gap-1.5 mt-3 text-[10px] !text-slate-400 dark:!text-slate-500">
-                    <div className="flex items-center gap-1">
-                        <FieldTimeOutlined />
-                        <span>{new Date(task.createdAt).toLocaleDateString('id-ID')}</span>
+                {/* Footer Meta: Time & Assignee */}
+                <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] !text-slate-500 dark:!text-slate-400">
+                    <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                        <FieldTimeOutlined className="text-slate-400" />
+                        <span>{new Date(task.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
                     </div>
 
-                    {assignee && (
-                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/60 border border-slate-200/50 dark:border-slate-600/50 px-2 py-0.5 rounded-full text-slate-600 dark:text-slate-300">
-                            <Avatar size={14} src={assignee.avatarUrl} icon={!assignee.avatarUrl && <UserOutlined />} className="!bg-blue-200" />
-                            <span className="truncate max-w-[80px] font-medium">{assignee.nama}</span>
+                    {assignee ? (
+                        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/80 px-2.5 py-1 rounded-full text-slate-700 dark:text-slate-200 text-[11px] font-medium shadow-2xs">
+                            <Avatar size={16} src={assignee.avatarUrl} icon={!assignee.avatarUrl && <UserOutlined />} className="!bg-blue-500 text-white" />
+                            <span className="truncate max-w-[90px]">{assignee.nama}</span>
                         </div>
+                    ) : (
+                        <span className="text-[11px] italic text-slate-400">Belum ditugaskan</span>
                     )}
                 </div>
 
-                <div className="flex items-center gap-1.5 mt-3">
+                {/* Actions Toolbar */}
+                <div className="flex items-center justify-between gap-2 mt-3 pt-2">
                     <Button
                         size="small"
                         icon={<CommentOutlined />}
                         onClick={() => setIsDetailOpen(true)}
-                        className="!text-slate-600 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700 !bg-slate-50 dark:!bg-slate-700/50 hover:!bg-slate-100 dark:hover:!bg-slate-700"
+                        className="!text-slate-600 dark:!text-slate-300 !border-slate-200/80 dark:!border-slate-700 !bg-slate-50 dark:!bg-slate-800/80 hover:!bg-slate-100 dark:hover:!bg-slate-700 rounded-lg text-xs"
                     >
-                        {task.comments?.length || 0}
+                        {task.comments?.length || 0} komentar
                     </Button>
+
                     {editable && (
-                        <>
+                        <div className="flex items-center gap-1">
                             <Button
                                 size="small"
                                 icon={<EditOutlined />}
                                 onClick={() => setIsEditOpen(true)}
-                                className="!text-slate-600 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700 !bg-slate-50 dark:!bg-slate-700/50 hover:!bg-slate-100 dark:hover:!bg-slate-700"
+                                className="!text-slate-600 dark:!text-slate-300 !border-slate-200/80 dark:!border-slate-700 !bg-slate-50 dark:!bg-slate-800/80 hover:!bg-slate-100 dark:hover:!bg-slate-700 rounded-lg"
                             />
                             <Popconfirm
                                 title="Hapus Task"
@@ -136,10 +160,10 @@ export default function TeamBoardTaskCard({
                                     size="small"
                                     danger
                                     icon={<DeleteOutlined />}
-                                    className="!border-red-200 dark:!border-red-900/50 !bg-red-50 dark:!bg-red-950/30 !text-red-600 dark:!text-red-400 hover:!bg-red-100 dark:hover:!bg-red-900/50"
+                                    className="!border-red-200 dark:!border-red-900/50 !bg-red-50 dark:!bg-red-950/30 !text-red-600 dark:!text-red-400 hover:!bg-red-100 dark:hover:!bg-red-900/50 rounded-lg"
                                 />
                             </Popconfirm>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>

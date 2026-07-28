@@ -128,21 +128,41 @@ func (r *taskRepository) FindOwned(ctx context.Context, id uint, kodeku string) 
 
 func (r *taskRepository) FindOwnedByLeaderOrUser(ctx context.Context, id uint, kodeku string, divisiKode int, isLeader bool) (*models.Task, error) {
 	var task models.Task
-	query := r.db.WithContext(ctx).Where("id = ?", id)
-	if isLeader && divisiKode > 0 {
-		query = query.Where("(user_kode = ? OR created_by = ? OR divisi_kode = ? OR divisi_kode IS NULL OR divisi_kode = 0)", kodeku, kodeku, divisiKode)
-	} else {
-		query = query.Where("(user_kode = ? OR created_by = ?)", kodeku, kodeku)
-	}
-
-	err := query.First(&task).Error
+	err := r.db.WithContext(ctx).First(&task, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("task not found")
 		}
 		return nil, err
 	}
-	return &task, nil
+
+	// 1. Owner or Creator
+	if task.UserKode == kodeku || task.CreatedBy == kodeku {
+		return &task, nil
+	}
+
+	// 2. Division Leader
+	if isLeader {
+		return &task, nil
+	}
+
+	// 3. Same Division
+	if divisiKode > 0 && task.DivisiKode != nil && *task.DivisiKode == divisiKode {
+		return &task, nil
+	}
+
+	// 4. Task with unassigned/global division
+	if task.DivisiKode == nil || *task.DivisiKode == 0 {
+		return &task, nil
+	}
+
+	// 5. Check if task's current assignee belongs to the caller's division
+	var memberCount int64
+	if err := r.db.WithContext(ctx).Table("masterpegawai").Where("kode = ? AND kodedivisi = ?", task.UserKode, divisiKode).Count(&memberCount).Error; err == nil && memberCount > 0 {
+		return &task, nil
+	}
+
+	return nil, errors.New("anda tidak memiliki akses untuk mengubah task ini")
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *models.Task) error {

@@ -37,7 +37,7 @@ export default function SortableTeamBoardTaskCard({ task, editable, ...rest }: S
         isDragging,
         active,
         over,
-    } = useSortable({ id: task.id })
+    } = useSortable({ id: task.id, data: { task, userKode: task.userKode } })
 
     const style = {
         transform: CSS.Translate.toString(transform),

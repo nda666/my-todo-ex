@@ -108,7 +108,8 @@ export default function TeamBoard() {
     const [draggingTask, setDraggingTask] = useState<Task | null>(null);
 
     const handleBoardDragStart = (event: DragStartEvent) => {
-        const t = teamTasks.find((item) => item.id === String(event.active.id));
+        const activeTaskFromData = event.active.data.current?.task as Task | undefined;
+        const t = activeTaskFromData || teamTasks.find((item) => item.id === String(event.active.id));
         if (t) setDraggingTask(t);
     };
 
@@ -118,7 +119,8 @@ export default function TeamBoard() {
         if (!over) return;
 
         const activeTaskId = String(active.id);
-        const activeTask = teamTasks.find((t) => t.id === activeTaskId);
+        const activeTaskFromData = active.data.current?.task as Task | undefined;
+        const activeTask = activeTaskFromData || teamTasks.find((t) => t.id === activeTaskId);
         if (!activeTask) return;
 
         let targetUserKode: string | null = null;
@@ -128,6 +130,8 @@ export default function TeamBoard() {
             targetUserKode = overIdStr.replace('member-col-', '');
         } else if (over.data.current?.userKode) {
             targetUserKode = over.data.current.userKode;
+        } else if (over.data.current?.task?.userKode) {
+            targetUserKode = over.data.current.task.userKode;
         } else {
             const overTask = teamTasks.find((t) => t.id === overIdStr);
             if (overTask) targetUserKode = overTask.userKode || null;
@@ -146,6 +150,7 @@ export default function TeamBoard() {
                     `Task "${activeTask.title}" berhasil dialihkan ke ${targetMember?.nama || targetUserKode}`
                 );
                 refetchTasks();
+                refetchMembers();
             } catch (err: any) {
                 message.error(err.message || 'Gagal memindahkan task');
             }

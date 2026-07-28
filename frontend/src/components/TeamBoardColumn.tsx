@@ -164,32 +164,23 @@ export default function TeamBoardColumn({
                 </div>
             ) : (
                 <>
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                        onDragCancel={() => setDraggingTask(null)}
-                    >
-                        <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                            {activeTasks.map((task) => (
-                                <SortableTeamBoardTaskCard
-                                    key={task.id}
-                                    task={task}
-                                    editable={editable}
-                                    members={members}
-                                    onUpdate={handleUpdate}
-                                    onDelete={handleDelete}
-                                    onAddComment={handleAddComment}
-                                    onToggleReaction={handleToggleReaction}
-                                    onSetMeta={handleSetMeta}
-                                    onDeleteMeta={handleDeleteMeta}
-                                    onReorderMeta={handleReorderMeta}
-                                />
-                            ))}
-                        </SortableContext>
-                        <DragOverlay>{draggingTask && <DragTaskPreview task={draggingTask} />}</DragOverlay>
-                    </DndContext>
+                    <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                        {activeTasks.map((task) => (
+                            <SortableTeamBoardTaskCard
+                                key={task.id}
+                                task={task}
+                                editable={editable}
+                                members={members}
+                                onUpdate={handleUpdate}
+                                onDelete={handleDelete}
+                                onAddComment={handleAddComment}
+                                onToggleReaction={handleToggleReaction}
+                                onSetMeta={handleSetMeta}
+                                onDeleteMeta={handleDeleteMeta}
+                                onReorderMeta={handleReorderMeta}
+                            />
+                        ))}
+                    </SortableContext>
 
                     {completedTasks.length > 0 && (
                         <Collapse
