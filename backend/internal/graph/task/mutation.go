@@ -16,6 +16,82 @@ import (
 )
 
 func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
+	addCommentField := &graphql.Field{
+		Type: t.TaskCommentType,
+		Args: graphql.FieldConfigArgument{
+			"taskId":      &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+			"content":     &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+			"parentId":    &graphql.ArgumentConfig{Type: graphql.ID},
+			"attachments": &graphql.ArgumentConfig{Type: graphql.NewList(t.CommentAttachmentInputType)},
+		},
+		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			claims, err := auth.RequireUser(p.Context)
+			if err != nil {
+				return nil, err
+			}
+			taskID, err := helpers.ParseID(p.Args["taskId"])
+			if err != nil {
+				return nil, err
+			}
+			if _, err := repos.Task.FindOwned(p.Context, taskID, claims.Kodeku); err != nil {
+				return nil, err
+			}
+
+			var parentIDPtr *uint
+			if parentVal, ok := p.Args["parentId"]; ok && parentVal != nil {
+				pid, err := helpers.ParseID(parentVal)
+				if err != nil {
+					return nil, err
+				}
+				parentIDPtr = &pid
+			}
+
+			content := p.Args["content"].(string)
+			comment := &models.TaskComment{
+				TaskID:   taskID,
+				UserKode: claims.Kodeku,
+				Content:  content,
+				ParentID: parentIDPtr,
+			}
+			if err := repos.Comment.Create(p.Context, comment); err != nil {
+				return nil, err
+			}
+
+			if attsRaw, ok := p.Args["attachments"].([]interface{}); ok && len(attsRaw) > 0 {
+				for _, item := range attsRaw {
+					m, ok := item.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					url := m["url"].(string)
+					fileName := m["fileName"].(string)
+					fileType := helpers.StrVal(m["fileType"])
+					var sizeBytes int64 = 0
+					if sb, ok := m["sizeBytes"].(int); ok {
+						sizeBytes = int64(sb)
+					} else if sb, ok := m["sizeBytes"].(float64); ok {
+						sizeBytes = int64(sb)
+					}
+
+					att := &models.CommentAttachment{
+						CommentID: comment.ID,
+						URL:       url,
+						FileName:  fileName,
+						FileType:  fileType,
+						SizeBytes: sizeBytes,
+					}
+					_ = repos.Comment.CreateAttachment(p.Context, att)
+				}
+				refreshed, err := repos.Comment.FindByID(p.Context, comment.ID)
+				if err == nil {
+					comment = refreshed
+				}
+			}
+
+			return helpers.FormatComment(*comment, claims.Kodeku), nil
+		},
+	}
+
 	return graphql.Fields{
 		"createTask": &graphql.Field{
 			Type: t.TaskType,
@@ -61,6 +137,11 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				}
 				if status, ok := input["status"]; ok && status != nil {
 					tsk.Status = status.(models.TaskStatus)
+				}
+				if prio, ok := input["priority"]; ok && prio != nil {
+					tsk.Priority = prio.(models.TaskPriority)
+				} else {
+					tsk.Priority = models.TaskPriorityMedium
 				}
 				if v, ok := input["startDate"]; ok && v != nil {
 					tsk.StartDate = helpers.ParseDatePtr(v)
@@ -181,6 +262,9 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 						tsk.CompletedAt = nil
 					}
 					tsk.Status = newStatus
+				}
+				if v, ok := input["priority"]; ok && v != nil {
+					tsk.Priority = v.(models.TaskPriority)
 				}
 				if v, ok := input["startDate"]; ok {
 					tsk.StartDate = helpers.ParseDatePtr(v)
@@ -513,81 +597,8 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 			},
 		},
 
-		"addComment": &graphql.Field{
-			Type: t.TaskCommentType,
-			Args: graphql.FieldConfigArgument{
-				"taskId":      &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
-				"content":     &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
-				"parentId":    &graphql.ArgumentConfig{Type: graphql.ID},
-				"attachments": &graphql.ArgumentConfig{Type: graphql.NewList(t.CommentAttachmentInputType)},
-			},
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				claims, err := auth.RequireUser(p.Context)
-				if err != nil {
-					return nil, err
-				}
-				taskID, err := helpers.ParseID(p.Args["taskId"])
-				if err != nil {
-					return nil, err
-				}
-				if _, err := repos.Task.FindOwned(p.Context, taskID, claims.Kodeku); err != nil {
-					return nil, err
-				}
-
-				var parentIDPtr *uint
-				if parentVal, ok := p.Args["parentId"]; ok && parentVal != nil {
-					pid, err := helpers.ParseID(parentVal)
-					if err != nil {
-						return nil, err
-					}
-					parentIDPtr = &pid
-				}
-
-				content := p.Args["content"].(string)
-				comment := &models.TaskComment{
-					TaskID:   taskID,
-					UserKode: claims.Kodeku,
-					Content:  content,
-					ParentID: parentIDPtr,
-				}
-				if err := repos.Comment.Create(p.Context, comment); err != nil {
-					return nil, err
-				}
-
-				if attsRaw, ok := p.Args["attachments"].([]interface{}); ok && len(attsRaw) > 0 {
-					for _, item := range attsRaw {
-						m, ok := item.(map[string]interface{})
-						if !ok {
-							continue
-						}
-						url := m["url"].(string)
-						fileName := m["fileName"].(string)
-						fileType := helpers.StrVal(m["fileType"])
-						var sizeBytes int64 = 0
-						if sb, ok := m["sizeBytes"].(int); ok {
-							sizeBytes = int64(sb)
-						} else if sb, ok := m["sizeBytes"].(float64); ok {
-							sizeBytes = int64(sb)
-						}
-
-						att := &models.CommentAttachment{
-							CommentID: comment.ID,
-							URL:       url,
-							FileName:  fileName,
-							FileType:  fileType,
-							SizeBytes: sizeBytes,
-						}
-						_ = repos.Comment.CreateAttachment(p.Context, att)
-					}
-					refreshed, err := repos.Comment.FindByID(p.Context, comment.ID)
-					if err == nil {
-						comment = refreshed
-					}
-				}
-
-				return helpers.FormatComment(*comment, claims.Kodeku), nil
-			},
-		},
+		"addComment": addCommentField,
+		"addTaskComment": addCommentField,
 
 		"toggleReaction": &graphql.Field{
 			Type: t.TaskCommentType,

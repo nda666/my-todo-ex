@@ -64,11 +64,16 @@ func FormatTask(task models.Task, currentUserKode string) map[string]interface{}
 	for i, s := range task.Subtasks {
 		subtasks[i] = FormatSubtask(s)
 	}
+	prio := string(task.Priority)
+	if prio == "" {
+		prio = "MEDIUM"
+	}
 	return map[string]interface{}{
 		"id":          strconv.FormatUint(uint64(task.ID), 10),
 		"title":       task.Title,
 		"description": task.Description,
 		"status":      task.Status,
+		"priority":    prio,
 		"userKode":    task.UserKode,
 		"createdBy":   task.CreatedBy,
 		"startDate":   FormatDatePtr(task.StartDate),

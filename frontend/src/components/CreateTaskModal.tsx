@@ -16,6 +16,7 @@ import { useQuery } from '@apollo/client';
 import { GET_COLLEAGUES, GET_PROJECTS, GET_TASKS } from '../lib/queries';
 import { Project } from '../types/project';
 import { Colleague, MetaDraft, Task } from '../types/task';
+import { PRIORITY_OPTIONS, PriorityLevel } from '../utils/taskPriority';
 import TaskMetaEditor from './TaskMetaEditor';
 
 const { Title } = Typography
@@ -28,6 +29,7 @@ interface CreateTaskModalProps {
     title: string
     description?: string
     targetUserKode?: string
+    priority?: PriorityLevel
     meta: MetaDraft[]
     startDate?: string
     dueDate?: string
@@ -47,6 +49,7 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(initialProjectId || null)
   const [selectedTargetUser, setSelectedTargetUser] = React.useState<string | undefined>(undefined)
   const [dependsOnTaskId, setDependsOnTaskId] = React.useState<string | null>(null)
+  const [priority, setPriority] = React.useState<PriorityLevel>('MEDIUM')
   const [subtasks, setSubtasks] = React.useState<string[]>([])
   const [newSubtaskText, setNewSubtaskText] = React.useState('')
 
@@ -80,6 +83,7 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
     setSelectedProjectId(initialProjectId || null)
     setSelectedTargetUser(undefined)
     setDependsOnTaskId(null)
+    setPriority('MEDIUM')
     setSubtasks([])
     setNewSubtaskText('')
   }
@@ -103,8 +107,16 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
     }
 
     let finalMeta = [...metaItems]
+    finalMeta = finalMeta.filter((m) => m.key !== 'priority' && m.key !== 'dependsOn')
+
+    finalMeta.push({
+      draftId: 'meta-priority-' + Date.now(),
+      key: 'priority',
+      value: priority,
+      type: 'TEXT',
+    })
+
     if (dependsOnTaskId) {
-      finalMeta = finalMeta.filter((m) => m.key !== 'dependsOn')
       finalMeta.push({
         draftId: 'meta-dependsOn-' + Date.now(),
         key: 'dependsOn',
@@ -117,6 +129,7 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
       title: values.title,
       description: values.description,
       targetUserKode: selectedTargetUser,
+      priority: priority,
       meta: finalMeta,
       startDate: startDate?.format('YYYY-MM-DD'),
       dueDate: dueDate?.format('YYYY-MM-DD'),
@@ -183,6 +196,16 @@ export default function CreateTaskModal({ open, onCancel, onCreate, loading, ini
                   value: p.id,
                 })),
             ]}
+            className="w-full"
+            size="large"
+          />
+        </Form.Item>
+
+        <Form.Item label="Prioritas Task">
+          <Select
+            value={priority}
+            onChange={(val) => setPriority(val as PriorityLevel)}
+            options={PRIORITY_OPTIONS}
             className="w-full"
             size="large"
           />

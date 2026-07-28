@@ -13,6 +13,7 @@ import { CommentOutlined, UserOutlined } from '@ant-design/icons';
 import { STATUS_OPTIONS } from '../constants/taskStatus';
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import { Colleague, Task } from '../types/task';
+import { getTaskPriority } from '../utils/taskPriority';
 import CommentThread from './CommentThread';
 import MetaDisplay from './MetaDisplay';
 import SubtaskList from './SubtaskList';
@@ -34,6 +35,7 @@ export default function TaskDetailModal({ open, task, onClose, readOnly, members
     if (!task) return null
     const activeStatus = STATUS_OPTIONS.find((s) => s.value === task.status)
     const currentAssignee = members?.find((m) => m.kodeku === task.userKode)
+    const priority = getTaskPriority(task)
 
     return (
         <Modal open={open} onCancel={onClose} footer={null} width={640} destroyOnClose className="dark:!bg-slate-900">
@@ -47,6 +49,9 @@ export default function TaskDetailModal({ open, task, onClose, readOnly, members
                             BLOCKED
                         </Tag>
                     )}
+                    <Tag color={priority.tagColor} className="font-semibold rounded-full px-2.5">
+                        Prioritas: {priority.label}
+                    </Tag>
                     <Tag color={activeStatus?.color || 'default'}>{activeStatus?.label || task.status}</Tag>
                 </div>
 

@@ -1,4 +1,5 @@
 export type TaskStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED";
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type SubtaskStatus = "PENDING" | "COMPLETED";
 export type MetaType = "TEXT" | "LINK" | "COLOR" | "DATE" | "FILE" | "IMAGE";
 
@@ -93,6 +94,7 @@ export interface Task {
   title: string;
   description: string | null;
   status: TaskStatus;
+  priority?: TaskPriority;
   userKode: string;
   createdBy: string;
   createdAt: string;

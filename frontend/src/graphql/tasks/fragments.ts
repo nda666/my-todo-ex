@@ -29,6 +29,7 @@ export const TASK_FIELDS = gql`
     title
     description
     status
+    priority
     userKode
     sortOrder
     createdBy

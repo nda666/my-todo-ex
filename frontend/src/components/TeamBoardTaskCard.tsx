@@ -26,6 +26,7 @@ import {
     Task,
     TaskStatus,
 } from '../types/task';
+import { getTaskPriority } from '../utils/taskPriority';
 import TaskDetailModal from './TaskDetailModal';
 import TaskEditModal from './TaskEditModal';
 
@@ -53,6 +54,7 @@ export default function TeamBoardTaskCard({
 
     const activeStatus = STATUS_OPTIONS.find((s) => s.value === task.status)
     const assignee = members?.find((m) => m.kodeku === task.userKode)
+    const priority = getTaskPriority(task)
 
     const handleEditSubmit = async (id: string, input: any) => {
         setUpdating(true)
@@ -80,7 +82,12 @@ export default function TeamBoardTaskCard({
                             </Tag>
                         )}
                     </div>
-                    <Tag color={activeStatus?.color || 'default'} className="shrink-0">{activeStatus?.label || task.status}</Tag>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <Tag color={priority.tagColor} className="m-0 text-[10px] font-semibold px-1.5 py-0 rounded">
+                            {priority.label}
+                        </Tag>
+                        <Tag color={activeStatus?.color || 'default'} className="m-0 text-[10px]">{activeStatus?.label || task.status}</Tag>
+                    </div>
                 </div>
 
                 {task.description ? (

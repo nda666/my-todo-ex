@@ -8,6 +8,7 @@ import (
 
 type Types struct {
 	TaskStatusEnum             *graphql.Enum
+	TaskPriorityEnum           *graphql.Enum
 	SubtaskStatusEnum          *graphql.Enum
 	MetaTypeEnum               *graphql.Enum
 	SubtaskType                *graphql.Object
@@ -31,6 +32,16 @@ func BuildTypes() *Types {
 			"PENDING":     &graphql.EnumValueConfig{Value: models.TaskStatusPending},
 			"IN_PROGRESS": &graphql.EnumValueConfig{Value: models.TaskStatusInProgress},
 			"COMPLETED":   &graphql.EnumValueConfig{Value: models.TaskStatusCompleted},
+		},
+	})
+
+	taskPriorityEnum := graphql.NewEnum(graphql.EnumConfig{
+		Name: "TaskPriority",
+		Values: graphql.EnumValueConfigMap{
+			"LOW":      &graphql.EnumValueConfig{Value: models.TaskPriorityLow},
+			"MEDIUM":   &graphql.EnumValueConfig{Value: models.TaskPriorityMedium},
+			"HIGH":     &graphql.EnumValueConfig{Value: models.TaskPriorityHigh},
+			"CRITICAL": &graphql.EnumValueConfig{Value: models.TaskPriorityCritical},
 		},
 	})
 
@@ -156,6 +167,7 @@ func BuildTypes() *Types {
 				"title":       &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 				"description": &graphql.Field{Type: graphql.String},
 				"status":      &graphql.Field{Type: graphql.NewNonNull(taskStatusEnum)},
+				"priority":    &graphql.Field{Type: taskPriorityEnum},
 				"createdAt":   &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 				"updatedAt":   &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
 				"userKode":    &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
@@ -201,6 +213,7 @@ func BuildTypes() *Types {
 			"title":          &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
 			"description":    &graphql.InputObjectFieldConfig{Type: graphql.String},
 			"status":         &graphql.InputObjectFieldConfig{Type: taskStatusEnum},
+			"priority":       &graphql.InputObjectFieldConfig{Type: taskPriorityEnum},
 			"targetUserKode": &graphql.InputObjectFieldConfig{Type: graphql.String},
 			"meta":           &graphql.InputObjectFieldConfig{Type: graphql.NewList(metaInputType)},
 			"projectId":      &graphql.InputObjectFieldConfig{Type: graphql.ID},
@@ -216,6 +229,7 @@ func BuildTypes() *Types {
 			"title":          &graphql.InputObjectFieldConfig{Type: graphql.String},
 			"description":    &graphql.InputObjectFieldConfig{Type: graphql.String},
 			"status":         &graphql.InputObjectFieldConfig{Type: taskStatusEnum},
+			"priority":       &graphql.InputObjectFieldConfig{Type: taskPriorityEnum},
 			"startDate":      &graphql.InputObjectFieldConfig{Type: graphql.String},
 			"dueDate":        &graphql.InputObjectFieldConfig{Type: graphql.String},
 			"meta":           &graphql.InputObjectFieldConfig{Type: graphql.NewList(metaInputType)},
@@ -225,6 +239,7 @@ func BuildTypes() *Types {
 
 	return &Types{
 		TaskStatusEnum:             taskStatusEnum,
+		TaskPriorityEnum:           taskPriorityEnum,
 		SubtaskStatusEnum:          subtaskStatusEnum,
 		MetaTypeEnum:               metaTypeEnum,
 		SubtaskType:                subtaskType,

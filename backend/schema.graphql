@@ -1,15 +1,30 @@
 # GraphQL Schema Reference
 
-```graphql
 enum TaskStatus {
   PENDING
   IN_PROGRESS
   COMPLETED
 }
 
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 enum SubtaskStatus {
   PENDING
   COMPLETED
+}
+
+enum MetaType {
+  TEXT
+  LINK
+  COLOR
+  DATE
+  FILE
+  IMAGE
 }
 
 type Jabatan {
@@ -27,6 +42,7 @@ type Pegawai {
   nama: String!
   kodejabatan: Int!
   kodedivisi: Int!
+  statusLeader: Int
   jabatan: Jabatan
   divisi: Divisi
 }
@@ -34,7 +50,16 @@ type Pegawai {
 type User {
   kodeku: String!
   username: String!
+  avatarUrl: String
   pegawai: Pegawai
+}
+
+type Colleague {
+  kodeku: String!
+  nama: String!
+  statusLeader: Int
+  avatarUrl: String
+  jabatan: Jabatan
 }
 
 type AuthPayload {
@@ -47,11 +72,24 @@ type Task {
   title: String!
   description: String
   status: TaskStatus!
+  priority: TaskPriority!
+  userKode: String!
+  createdBy: String!
+  startDate: String
+  dueDate: String
+  completedAt: String
+  sortOrder: Int
   createdAt: String!
   updatedAt: String!
   comments: [TaskComment!]!
   meta: [TaskMeta!]!
   subtasks: [Subtask!]!
+}
+
+type TaskConnection {
+  tasks: [Task!]!
+  nextCursor: String
+  hasMore: Boolean!
 }
 
 type Subtask {
@@ -64,15 +102,18 @@ type Subtask {
   updatedAt: String!
 }
 
-input CreateSubtaskInput {
-  taskId: ID!
-  description: String!
-  status: SubtaskStatus
+type CommentAttachment {
+  id: ID!
+  url: String!
+  fileName: String!
+  fileType: String
+  sizeBytes: Int
 }
 
-input UpdateSubtaskInput {
-  description: String
-  status: SubtaskStatus
+type ReactionSummary {
+  emoji: String!
+  count: Int!
+  reacted: Boolean!
 }
 
 type TaskComment {
@@ -80,15 +121,10 @@ type TaskComment {
   content: String!
   userKode: String!
   createdAt: String!
-}
-
-enum MetaType {
-  TEXT
-  LINK
-  COLOR
-  DATE
-  FILE
-  IMAGE
+  parentId: ID
+  replies: [TaskComment!]!
+  reactions: [ReactionSummary!]!
+  attachments: [CommentAttachment!]!
 }
 
 type TaskMeta {
@@ -109,25 +145,57 @@ input CreateTaskInput {
   title: String!
   description: String
   status: TaskStatus
+  priority: TaskPriority
   targetUserKode: String
   projectId: ID
   startDate: String
   dueDate: String
+  meta: [TaskMetaInput!]
+  subtasks: [String!]
 }
 
 input UpdateTaskInput {
   title: String
   description: String
   status: TaskStatus
+  priority: TaskPriority
   startDate: String
   dueDate: String
   meta: [TaskMetaInput!]
   targetUserKode: String
 }
 
+input CreateSubtaskInput {
+  taskId: ID!
+  description: String!
+  status: SubtaskStatus
+}
+
+input UpdateSubtaskInput {
+  description: String
+  status: SubtaskStatus
+}
+
+input CommentAttachmentInput {
+  url: String!
+  fileName: String!
+  fileType: String
+  sizeBytes: Int
+}
+
 type Query {
   me: User
-  tasks: [Task!]!
+  colleagues: [Colleague!]!
+  colleaguesByDivisi(divisiKode: Int!): [Colleague!]!
+  tasks(
+    limit: Int
+    cursor: String
+    userKode: String
+    search: String
+    startDate: String
+    dueDate: String
+    projectId: ID
+  ): TaskConnection!
   task(id: ID!): Task
 }
 
@@ -136,12 +204,20 @@ type Mutation {
   createTask(input: CreateTaskInput!): Task!
   updateTask(id: ID!, input: UpdateTaskInput!): Task!
   deleteTask(id: ID!): Boolean!
-  addTaskComment(taskId: ID!, content: String!): TaskComment!
-  setTaskMeta(taskId: ID!, key: String!, value: String): TaskMeta!
+  reorderTasks(orderedIds: [ID!]): [Task!]
+  addTaskComment(
+    taskId: ID!
+    content: String!
+    parentId: ID
+    attachments: [CommentAttachmentInput!]
+  ): TaskComment!
+  toggleReaction(commentId: ID!, emoji: String!): TaskComment!
+  deleteComment(id: ID!): Boolean!
+  setTaskMeta(taskId: ID!, key: String!, value: String, type: MetaType): TaskMeta!
   deleteTaskMeta(id: ID!): Boolean!
+  reorderTaskMeta(taskId: ID!, orderedIds: [ID!]): Boolean!
   createSubtask(input: CreateSubtaskInput!): Subtask!
   updateSubtask(id: ID!, input: UpdateSubtaskInput!): Subtask!
   deleteSubtask(id: ID!): Boolean!
-  reorderSubtasks(taskId: ID!, orderedIds: [ID!]!): [Subtask!]!
+  reorderSubtasks(taskId: ID!, orderedIds: [ID!]!): Boolean!
 }
-```

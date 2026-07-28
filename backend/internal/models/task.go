@@ -11,11 +11,21 @@ const (
 	TaskStatusCompleted  TaskStatus = "completed"
 )
 
+type TaskPriority string
+
+const (
+	TaskPriorityLow      TaskPriority = "LOW"
+	TaskPriorityMedium   TaskPriority = "MEDIUM"
+	TaskPriorityHigh     TaskPriority = "HIGH"
+	TaskPriorityCritical TaskPriority = "CRITICAL"
+)
+
 type Task struct {
 	ID          uint          `gorm:"primaryKey"`
 	Title       string        `gorm:"size:255;not null"`
 	Description string        `gorm:"type:text"`
 	Status      TaskStatus    `gorm:"size:20;default:pending;not null"`
+	Priority    TaskPriority  `gorm:"size:20;default:MEDIUM;not null"`
 	UserKode    string        `gorm:"column:user_kode;size:50;not null;index;collate:utf8mb4_general_ci"`
 	DivisiKode  *int          `gorm:"column:divisi_kode;index"`
 	CreatedBy   string        `gorm:"column:created_by;size:50;not null;index;collate:utf8mb4_general_ci"`

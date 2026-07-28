@@ -27,6 +27,7 @@ import {
     Task,
     TaskStatus,
 } from '../types/task';
+import { getTaskPriority } from '../utils/taskPriority';
 import CommentThread from './CommentThread';
 import MetaDisplay from './MetaDisplay';
 import SubtaskList from './SubtaskList';
@@ -76,6 +77,7 @@ export default function TaskCard({
     const [showSubtasks, setShowSubtasks] = useState(false)
 
     const activeStatus = STATUS_OPTIONS.find((s) => s.value === task.status)
+    const priority = getTaskPriority(task)
     const visibleMeta = showAllMeta ? task.meta : task.meta.slice(0, META_PREVIEW_COUNT)
     const hiddenMetaCount = task.meta.length - META_PREVIEW_COUNT
 
@@ -106,6 +108,9 @@ export default function TaskCard({
                                 <LockOutlined /> BLOCKED
                             </Tag>
                         )}
+                        <Tag color={priority.tagColor} className="font-semibold rounded-full px-2.5">
+                            {priority.label}
+                        </Tag>
                         <Tag color={activeStatus?.color || 'default'} className="font-medium rounded-full px-2.5">
                             {activeStatus?.label || task.status}
                         </Tag>

@@ -21,6 +21,7 @@ import {
     Task,
     TaskStatus,
 } from '../types/task';
+import { PRIORITY_OPTIONS, PriorityLevel } from '../utils/taskPriority';
 import TaskMetaEditor from './TaskMetaEditor';
 import SubtaskList from './SubtaskList';
 
@@ -32,6 +33,7 @@ interface EditTaskFormValues {
     description?: string
     status: TaskStatus
     targetUserKode?: string
+    priority?: PriorityLevel
     dependsOnTaskId?: string
 }
 
@@ -65,11 +67,14 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
     useEffect(() => {
         if (task && open) {
             const dependsOnVal = task.meta?.find((m) => m.key === 'dependsOn' || m.key === 'blockedBy')?.value || undefined
+            const priorityVal = (task.priority || task.meta?.find((m) => m.key.toLowerCase() === 'priority' || m.key.toLowerCase() === 'prioritas')?.value || 'MEDIUM').toUpperCase() as PriorityLevel
+
             form.setFieldsValue({
                 title: task.title,
                 description: task.description || undefined,
                 status: task.status,
                 targetUserKode: task.userKode || undefined,
+                priority: priorityVal,
                 dependsOnTaskId: dependsOnVal,
             })
             setMetaItems(
@@ -87,7 +92,16 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
     const handleFinish = async (values: EditTaskFormValues) => {
         if (!task) return
 
-        let filteredMeta = metaItems.filter((item) => item.key.trim() && item.key !== 'dependsOn')
+        let filteredMeta = metaItems.filter((item) => item.key.trim() && item.key.toLowerCase() !== 'priority' && item.key !== 'dependsOn')
+
+        if (values.priority) {
+            filteredMeta.push({
+                draftId: 'meta-priority-' + Date.now(),
+                key: 'priority',
+                value: values.priority,
+                type: 'TEXT',
+            })
+        }
 
         if (values.dependsOnTaskId) {
             filteredMeta.push({
@@ -108,6 +122,7 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
             title: values.title.trim(),
             description: values.description?.trim() || null,
             status: values.status,
+            priority: values.priority,
             targetUserKode: values.targetUserKode || undefined,
             meta: formattedMeta,
         })
@@ -160,6 +175,10 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
 
                 <Form.Item name="status" label="Status" rules={[{ required: true }]}>
                     <Select options={STATUS_OPTIONS} className="w-full" size="large" />
+                </Form.Item>
+
+                <Form.Item name="priority" label="Prioritas Task">
+                    <Select options={PRIORITY_OPTIONS} className="w-full" size="large" />
                 </Form.Item>
 
                 <Form.Item name="dependsOnTaskId" label="Terhalang oleh / Depends On (Opsional)">
