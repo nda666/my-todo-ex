@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useMutation } from '@apollo/client';
 
 import {
     Avatar,
@@ -10,6 +11,7 @@ import {
     Modal,
     Progress,
     Select,
+    Spin,
     Tag,
     Tooltip,
     Typography,
@@ -22,11 +24,15 @@ import {
     DashboardOutlined,
     InfoCircleOutlined,
     RedoOutlined,
+    RobotOutlined,
+    RocketOutlined,
     SwapOutlined,
+    ThunderboltOutlined,
     UserOutlined,
 } from '@ant-design/icons';
 
 import { Colleague, Task } from '../types/task';
+import { ASK_DORA } from '../graphql/dora';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -112,6 +118,12 @@ export default function WorkloadCapacityWidget({
     const [targetUserKode, setTargetUserKode] = useState<string | null>(null);
     const [reassigning, setReassigning] = useState(false);
 
+    // AI Workload Advisor State
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    const [aiAnalysisResult, setAiAnalysisResult] = useState<string | null>(null);
+    const [executingAiTaskId, setExecutingAiTaskId] = useState<string | null>(null);
+    const [askDoraMutation, { loading: isAiAnalyzing }] = useMutation(ASK_DORA);
+
     // Calculate workload stats per member
     const workloadList: MemberWorkloadInfo[] = useMemo(() => {
         if (!members || members.length === 0) return [];
@@ -178,6 +190,92 @@ export default function WorkloadCapacityWidget({
         };
     }, [workloadList]);
 
+    // Compute AI Smart Reassignment Proposals algorithmically
+    const aiReassignmentProposals = useMemo(() => {
+        const proposals: Array<{
+            taskId: string;
+            taskTitle: string;
+            fromMember: Colleague;
+            toMember: Colleague;
+            reason: string;
+        }> = [];
+
+        const overloadedMembers = workloadList.filter((w) => w.level === 'OVERLOADED' || w.level === 'HEAVY');
+        const availableMembers = workloadList.filter((w) => w.level === 'LIGHT' || w.level === 'OPTIMAL');
+
+        if (overloadedMembers.length === 0 || availableMembers.length === 0) return proposals;
+
+        // Sort available members by fewest active tasks ascending
+        const sortedAvailable = [...availableMembers].sort((a, b) => a.activeTasks - b.activeTasks);
+
+        let targetIdx = 0;
+        for (const overloaded of overloadedMembers) {
+            const activeTasksToConsider = overloaded.userTasks.filter((t) => t.status === 'PENDING' || t.status === 'IN_PROGRESS');
+            if (activeTasksToConsider.length > 0) {
+                const taskToMove = activeTasksToConsider[0];
+                const recipient = sortedAvailable[targetIdx % sortedAvailable.length];
+
+                proposals.push({
+                    taskId: taskToMove.id,
+                    taskTitle: taskToMove.title,
+                    fromMember: overloaded.member,
+                    toMember: recipient.member,
+                    reason: `${overloaded.member.nama} (${overloaded.activeTasks} task aktif) dialihkan ke ${recipient.member.nama} (${recipient.activeTasks} task) untuk mencegah kelesuan & burnout.`,
+                });
+
+                targetIdx++;
+            }
+        }
+
+        return proposals;
+    }, [workloadList]);
+
+    const handleRunAiAnalysis = async () => {
+        setIsAiModalOpen(true);
+        if (aiAnalysisResult) return;
+
+        try {
+            const payloadSummary = workloadList.map((w) => ({
+                nama: w.member.nama,
+                statusKapasitas: w.levelLabel,
+                activeTasksCount: w.activeTasks,
+                completedTasksCount: w.completedTasks,
+            }));
+
+            const promptMessage = `Berikan analisis beban kerja tim singkat & strategi penyeimbangan tugas (maksimal 2 paragraf padat + 3 poin saran tindakan):
+- Anggota Tim: ${JSON.stringify(payloadSummary)}
+- Utilisasi Tim Divisi: ${summary.overallTeamUtilization}%
+- Anggota Overloaded: ${summary.overloadedCount} orang`;
+
+            const res = await askDoraMutation({
+                variables: {
+                    message: promptMessage,
+                    sessionId: `workload_advisor_${Date.now()}`,
+                },
+            });
+
+            if (res.data?.askDora?.reply) {
+                setAiAnalysisResult(res.data.askDora.reply);
+            }
+        } catch (err) {
+            setAiAnalysisResult('Gagal menghubungi AI Assistant. Anda tetap dapat menggunakan rekomendasi redistribusi tugas berbasis AI di bawah.');
+        }
+    };
+
+    const handleApplyAiReassign = async (taskId: string, targetKode: string) => {
+        if (!onReassignTask) return;
+        setExecutingAiTaskId(taskId);
+        try {
+            await onReassignTask(taskId, targetKode);
+            message.success('Rekomendasi AI berhasil diterapkan!');
+            if (onRefreshTasks) onRefreshTasks();
+        } catch (err: any) {
+            message.error(err.message || 'Gagal memindahkan task');
+        } finally {
+            setExecutingAiTaskId(null);
+        }
+    };
+
     const filteredList = useMemo(() => {
         if (selectedLevelFilter === 'ALL') return workloadList;
         return workloadList.filter((w) => w.level === selectedLevelFilter);
@@ -212,13 +310,21 @@ export default function WorkloadCapacityWidget({
                     </Text>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                        type="primary"
+                        icon={<RobotOutlined />}
+                        onClick={handleRunAiAnalysis}
+                        className="!bg-gradient-to-r !from-indigo-600 !to-blue-600 hover:!from-indigo-500 hover:!to-blue-500 !border-0 text-xs font-semibold rounded-xl shadow-xs"
+                    >
+                        AI Workload Advisor
+                    </Button>
                     {onRefreshTasks && (
                         <Button
                             size="small"
                             icon={<RedoOutlined />}
                             onClick={onRefreshTasks}
-                            className="text-xs text-slate-500 dark:text-slate-400"
+                            className="text-xs text-slate-500 dark:text-slate-400 rounded-xl"
                         >
                             Refresh
                         </Button>
@@ -491,6 +597,125 @@ export default function WorkloadCapacityWidget({
                         )}
                     </div>
                 )}
+            </Modal>
+
+            {/* AI Workload Advisor Modal */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-indigo-100 dark:bg-indigo-950/60 rounded-lg text-indigo-600 dark:text-indigo-400">
+                            <RobotOutlined className="text-base" />
+                        </div>
+                        <div>
+                            <div className="font-semibold text-slate-800 dark:text-slate-100 text-base">
+                                AI Workload & Capacity Optimizer
+                            </div>
+                            <Text className="text-xs text-slate-500 dark:text-slate-400 font-normal block">
+                                Analisis beban kerja berbasis AI untuk pencegahan burnout & pemerataan kapasitas tim
+                            </Text>
+                        </div>
+                    </div>
+                }
+                open={isAiModalOpen}
+                onCancel={() => setIsAiModalOpen(false)}
+                footer={
+                    <div className="flex justify-end">
+                        <Button onClick={() => setIsAiModalOpen(false)}>Tutup</Button>
+                    </div>
+                }
+                width={680}
+            >
+                <div className="py-2 space-y-4">
+                    {/* Status Header */}
+                    <div className="p-3.5 bg-gradient-to-r from-indigo-50/80 to-blue-50/80 dark:from-indigo-950/30 dark:to-blue-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <ThunderboltOutlined className="text-indigo-600 dark:text-indigo-400 text-xl" />
+                            <div>
+                                <div className="text-xs font-semibold text-indigo-900 dark:text-indigo-200">
+                                    Status Utilisasi Tim: {summary.overallTeamUtilization}%
+                                </div>
+                                <div className="text-[11px] text-indigo-700 dark:text-indigo-300">
+                                    {summary.overloadedCount > 0
+                                        ? `⚠️ Ada ${summary.overloadedCount} anggota terdeteksi overloaded.`
+                                        : '✅ Beban kerja tim dalam batas aman.'}
+                                </div>
+                            </div>
+                        </div>
+                        <Tag color={summary.overallTeamUtilization > 80 ? 'red' : 'blue'} className="text-xs px-2.5 py-0.5 rounded-full font-semibold">
+                            {summary.overallTeamUtilization > 80 ? 'HIGH RISK' : 'HEALTHY'}
+                        </Tag>
+                    </div>
+
+                    {/* AI Narrative Analysis Card */}
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                        <div className="flex items-center gap-2 mb-2 font-semibold text-xs text-slate-700 dark:text-slate-300">
+                            <RocketOutlined className="text-blue-500" /> Analisis & Solusi AI Advisor:
+                        </div>
+                        {isAiAnalyzing ? (
+                            <div className="py-6 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-xs">
+                                <Spin size="medium" />
+                                <span>Menganalisis pola penugasan & kapasitas anggota tim...</span>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                                {aiAnalysisResult || 'Menyiapkan rekomendasi AI...'}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* AI Actionable Recommendations (1-Click Reassign) */}
+                    <div>
+                        <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-2.5 flex items-center gap-1.5">
+                            <SwapOutlined className="text-indigo-500" />
+                            Rekomendasi Redistribusi Tugas Otomatis (1-Click Action):
+                        </div>
+
+                        {aiReassignmentProposals.length === 0 ? (
+                            <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                                <CheckCircleOutlined className="text-emerald-500 text-base" />
+                                Tidak ada penumpukan tugas kritis saat ini. Distribusi tugas anggota sudah proporsional.
+                            </div>
+                        ) : (
+                            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                                {aiReassignmentProposals.map((prop) => (
+                                    <div
+                                        key={prop.taskId}
+                                        className="p-3 bg-white dark:bg-slate-800/90 rounded-xl border border-slate-200 dark:border-slate-700/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-semibold text-xs text-slate-800 dark:text-slate-100 truncate">
+                                                {prop.taskTitle}
+                                            </div>
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                <span className="text-red-600 dark:text-red-400 font-medium">
+                                                    {prop.fromMember.nama}
+                                                </span>
+                                                <span>➔</span>
+                                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                                    {prop.toMember.nama}
+                                                </span>
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 dark:text-slate-500 italic mt-1">
+                                                {prop.reason}
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            type="primary"
+                                            size="small"
+                                            icon={<SwapOutlined />}
+                                            loading={executingAiTaskId === prop.taskId}
+                                            onClick={() => handleApplyAiReassign(prop.taskId, prop.toMember.kodeku)}
+                                            className="!bg-indigo-600 hover:!bg-indigo-500 !border-0 text-xs font-medium rounded-lg shrink-0"
+                                        >
+                                            Pindahkan
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
             </Modal>
         </Card>
     );
