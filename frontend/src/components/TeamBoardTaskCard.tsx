@@ -67,10 +67,7 @@ export default function TeamBoardTaskCard({
 
     return (
         <>
-            <Card
-                className="shadow-sm hover:shadow-md transition-shadow !border !border-slate-200 dark:!border-slate-800 !bg-white dark:!bg-slate-900 rounded-xl mb-3"
-                bodyStyle={{ padding: '1rem' }}
-            >
+            <div className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-400 dark:hover:border-blue-500 shadow-2xs hover:shadow-xs transition-all duration-150 rounded-xl p-3.5 mb-3">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-1.5 min-w-0">
                         <Title level={5} className="!mb-0 font-semibold !text-slate-800 dark:!text-slate-100 truncate">
@@ -103,7 +100,7 @@ export default function TeamBoardTaskCard({
                     </div>
 
                     {assignee && (
-                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-600 dark:text-slate-300">
+                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/60 border border-slate-200/50 dark:border-slate-600/50 px-2 py-0.5 rounded-full text-slate-600 dark:text-slate-300">
                             <Avatar size={14} src={assignee.avatarUrl} icon={!assignee.avatarUrl && <UserOutlined />} className="!bg-blue-200" />
                             <span className="truncate max-w-[80px] font-medium">{assignee.nama}</span>
                         </div>
@@ -111,12 +108,22 @@ export default function TeamBoardTaskCard({
                 </div>
 
                 <div className="flex items-center gap-1.5 mt-3">
-                    <Button size="small" icon={<CommentOutlined />} onClick={() => setIsDetailOpen(true)}>
+                    <Button
+                        size="small"
+                        icon={<CommentOutlined />}
+                        onClick={() => setIsDetailOpen(true)}
+                        className="!text-slate-600 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700 !bg-slate-50 dark:!bg-slate-700/50 hover:!bg-slate-100 dark:hover:!bg-slate-700"
+                    >
                         {task.comments?.length || 0}
                     </Button>
                     {editable && (
                         <>
-                            <Button size="small" icon={<EditOutlined />} onClick={() => setIsEditOpen(true)} />
+                            <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => setIsEditOpen(true)}
+                                className="!text-slate-600 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700 !bg-slate-50 dark:!bg-slate-700/50 hover:!bg-slate-100 dark:hover:!bg-slate-700"
+                            />
                             <Popconfirm
                                 title="Hapus Task"
                                 description="Apakah Anda yakin ingin menghapus task ini?"
@@ -125,12 +132,17 @@ export default function TeamBoardTaskCard({
                                 cancelText="Tidak"
                                 okButtonProps={{ danger: true }}
                             >
-                                <Button size="small" danger icon={<DeleteOutlined />} />
+                                <Button
+                                    size="small"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    className="!border-red-200 dark:!border-red-900/50 !bg-red-50 dark:!bg-red-950/30 !text-red-600 dark:!text-red-400 hover:!bg-red-100 dark:hover:!bg-red-900/50"
+                                />
                             </Popconfirm>
                         </>
                     )}
                 </div>
-            </Card>
+            </div>
 
             <TaskDetailModal
                 open={isDetailOpen}

@@ -231,8 +231,8 @@ export default function WorkloadCapacityWidget({
 
             {/* Quick KPI Overview Banner */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                    <Text className="text-[11px] text-slate-500 block">Utilisasi Tim</Text>
+                <div className="p-3 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                    <Text className="text-[11px] text-slate-500 dark:text-slate-400 block">Utilisasi Tim</Text>
                     <div className="flex items-baseline gap-2 mt-1">
                         <span className="text-xl font-bold text-slate-800 dark:text-slate-100">
                             {summary.overallTeamUtilization}%
@@ -247,21 +247,21 @@ export default function WorkloadCapacityWidget({
                     </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                    <Text className="text-[11px] text-slate-500 block">Rata-rata Task / Anggota</Text>
+                <div className="p-3 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                    <Text className="text-[11px] text-slate-500 dark:text-slate-400 block">Rata-rata Task / Anggota</Text>
                     <span className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1 block">
                         {summary.avgActiveTasks}
                     </span>
                 </div>
 
-                <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/60 dark:border-emerald-800/50">
                     <Text className="text-[11px] text-emerald-700 dark:text-emerald-400 block">Siap Menerima Task (Available)</Text>
                     <span className="text-xl font-bold text-emerald-600 dark:text-emerald-300 mt-1 block">
                         {summary.lightCount + summary.optimalCount} Anggota
                     </span>
                 </div>
 
-                <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/40">
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200/60 dark:border-amber-800/50">
                     <Text className="text-[11px] text-amber-700 dark:text-amber-400 block flex items-center gap-1">
                         Overloaded / High Load {summary.overloadedCount > 0 && <AlertOutlined className="text-red-500" />}
                     </Text>
@@ -316,7 +316,7 @@ export default function WorkloadCapacityWidget({
                     filteredList.map((w) => (
                         <div
                             key={w.member.kodeku}
-                            className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/40 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between"
+                            className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800/80 hover:border-blue-400 dark:hover:border-blue-500 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
                         >
                             <div>
                                 <div className="flex items-start justify-between gap-2 mb-2">

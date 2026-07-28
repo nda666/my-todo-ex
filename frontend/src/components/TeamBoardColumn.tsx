@@ -141,7 +141,7 @@ export default function TeamBoardColumn({
                     block
                     icon={<PlusOutlined />}
                     onClick={() => onQuickAssign(userKode)}
-                    className="mb-3 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-500 rounded-xl"
+                    className="mb-3 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-500 rounded-xl bg-white/80 dark:bg-slate-800/60"
                 >
                     Assign Task
                 </Button>
@@ -183,7 +183,7 @@ export default function TeamBoardColumn({
                     {completedTasks.length > 0 && (
                         <Collapse
                             size="small"
-                            className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl mt-3"
+                            className="!bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-xl mt-3 [&_.ant-collapse-header]:!bg-slate-50 dark:[&_.ant-collapse-header]:!bg-slate-800/50 [&_.ant-collapse-content]:!bg-white dark:[&_.ant-collapse-content]:!bg-slate-900"
                             items={[
                                 {
                                     key: 'completed',

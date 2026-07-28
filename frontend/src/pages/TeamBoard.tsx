@@ -249,8 +249,8 @@ export default function TeamBoard() {
 
                 {/* KPI Metrics Strip */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                        <Text className="text-[11px] text-slate-500 block">Utilisasi Tim Divisi</Text>
+                    <div className="p-3 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                        <Text className="text-[11px] text-slate-500 dark:text-slate-400 block">Utilisasi Tim Divisi</Text>
                         <div className="flex items-baseline gap-2 mt-1">
                             <span className="text-xl font-bold text-slate-800 dark:text-slate-100">
                                 {summary.overallTeamUtilization}%
@@ -271,14 +271,14 @@ export default function TeamBoard() {
                         </div>
                     </div>
 
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                        <Text className="text-[11px] text-slate-500 block">Rata-rata Task / Anggota</Text>
+                    <div className="p-3 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                        <Text className="text-[11px] text-slate-500 dark:text-slate-400 block">Rata-rata Task / Anggota</Text>
                         <span className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1 block">
                             {summary.avgActiveTasks} task
                         </span>
                     </div>
 
-                    <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/60 dark:border-emerald-800/50">
                         <Text className="text-[11px] text-emerald-700 dark:text-emerald-400 block">
                             Tersedia (Available)
                         </Text>
@@ -287,7 +287,7 @@ export default function TeamBoard() {
                         </span>
                     </div>
 
-                    <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900/40">
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200/60 dark:border-amber-800/50">
                         <Text className="text-[11px] text-amber-700 dark:text-amber-400 block flex items-center gap-1">
                             Overloaded / High Load {summary.overloadedCount > 0 && <AlertOutlined className="text-red-500" />}
                         </Text>
@@ -364,10 +364,10 @@ export default function TeamBoard() {
                             <div
                                 key={m.kodeku}
                                 style={{ scrollSnapAlign: 'start' }}
-                                className="shrink-0 w-[88vw] max-w-[340px] flex flex-col bg-slate-50/60 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs"
+                                className="shrink-0 w-[88vw] max-w-[340px] flex flex-col bg-slate-100/80 dark:bg-slate-900/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs"
                             >
                                 {/* Column Header - Member Info & Capacity Bar */}
-                                <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border border-slate-100 dark:border-slate-800 mb-3 shadow-2xs">
+                                <div className="bg-white dark:bg-slate-800/90 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/80 mb-3 shadow-2xs">
                                     <div
                                         onClick={() => navigate(`/teams/${divisiKode}/${m.kodeku}`)}
                                         className="flex items-center justify-between gap-2 cursor-pointer group"

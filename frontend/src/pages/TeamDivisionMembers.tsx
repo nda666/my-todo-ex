@@ -150,7 +150,7 @@ export default function TeamDivisionMembers() {
                             onClick={() => navigate(`/teams/${divisiKode}/${m.kodeku}`, {
                                 preventScrollReset: true
                             })}
-                            className="group relative cursor-pointer !bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-2xl p-5 hover:!border-blue-400 dark:hover:!border-blue-700 hover:shadow-md transition-all duration-150 flex flex-col justify-between"
+                            className="group relative cursor-pointer bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-5 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all duration-150 flex flex-col justify-between"
                         >
                             <div>
                                 {m.statusLeader === 1 && (

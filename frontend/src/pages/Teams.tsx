@@ -78,7 +78,7 @@ export default function Teams() {
                         <div
                             key={d.kode}
                             onClick={() => navigate(`/teams/${d.kode}`)}
-                            className="group cursor-pointer !bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 rounded-2xl p-5 hover:!border-blue-400 dark:hover:!border-blue-700 hover:shadow-md transition-all duration-150"
+                            className="group cursor-pointer bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-5 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all duration-150"
                         >
                             {d.iconKey ? (
                                 <div
