@@ -32,15 +32,15 @@ func BuildTypes() *Types {
 	doraDivisionCandidateType := graphql.NewObject(graphql.ObjectConfig{
 		Name: "DoraDivisionCandidate",
 		Fields: graphql.Fields{
-			"kode": &graphql.Field{Type: graphql.NewNonNull(graphql.Int)},
-			"nama": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+			"kode": &graphql.Field{Type: graphql.Int},
+			"nama": &graphql.Field{Type: graphql.String},
 		},
 	})
 
 	doraSuggestedActionType := graphql.NewObject(graphql.ObjectConfig{
 		Name: "DoraSuggestedAction",
 		Fields: graphql.Fields{
-			"type":               &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+			"type":               &graphql.Field{Type: graphql.String},
 			"title":              &graphql.Field{Type: graphql.String},
 			"description":        &graphql.Field{Type: graphql.String},
 			"targetUserKode":     &graphql.Field{Type: graphql.String},

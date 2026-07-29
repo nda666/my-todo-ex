@@ -145,5 +145,8 @@ func ExtractAction(reply string) (cleanReply string, action *SuggestedAction) {
 	if err := json.Unmarshal([]byte(match[1]), &parsed); err != nil {
 		return cleanReply, nil
 	}
+	if strings.TrimSpace(parsed.Type) == "" {
+		return cleanReply, nil
+	}
 	return cleanReply, &parsed
 }
