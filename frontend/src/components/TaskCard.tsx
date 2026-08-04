@@ -11,6 +11,7 @@ import {
 
 import {
     CommentOutlined,
+    CrownOutlined,
     DeleteOutlined,
     EditOutlined,
     FieldTimeOutlined,
@@ -82,6 +83,7 @@ export default function TaskCard({
     const hiddenMetaCount = task.meta.length - META_PREVIEW_COUNT
 
     const assignee = members.find((m) => m.kodeku === task.userKode)
+    const creator = members.find((m) => m.kodeku === task.createdBy)
 
     const handleEditSubmit = async (id: string, input: UpdateTaskInput) => {
         setUpdating(true)
@@ -121,6 +123,15 @@ export default function TaskCard({
                         ) : task.userKode ? (
                             <Tag icon={<UserOutlined />} color="cyan" className="font-medium rounded-full px-2.5">
                                 User #{task.userKode}
+                            </Tag>
+                        ) : null}
+                        {creator ? (
+                            <Tag icon={<CrownOutlined />} color={creator.statusLeader === 1 ? 'purple' : 'geekblue'} className="font-medium rounded-full px-2.5">
+                                Dibuat oleh {creator.nama}
+                            </Tag>
+                        ) : task.createdBy ? (
+                            <Tag icon={<CrownOutlined />} color="purple" className="font-medium rounded-full px-2.5">
+                                Dibuat oleh User #{task.createdBy}
                             </Tag>
                         ) : null}
                         {readOnly && (

@@ -18,7 +18,10 @@ import {
 import {
   AppstoreOutlined,
   PlusOutlined,
+  SendOutlined,
   TableOutlined,
+  TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import {
   useMutation,
@@ -84,6 +87,7 @@ export default function Dashboard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [viewMode, setViewMode] = useLocalStorageState<'card' | 'table'>('task_view_mode', 'card')
   const [statusTab, setStatusTab] = useState<StatusTabKey>('all')
+  const [assignmentTab, setAssignmentTab] = useState<'assignedToMe' | 'assignedToOthers' | 'all'>('assignedToMe')
   const [draggingTask, setDraggingTask] = useState<Task | null>(null)
   const [search, setSearch] = useState('')
   const [startDate, setStartDate] = useState<string | null>(null)
@@ -104,7 +108,7 @@ export default function Dashboard() {
     [search, startDate, dueDate, projectId]
   )
 
-  const { tasks, loading, loadingMore, hasMore, loadMore } = useInfiniteTasks(me?.kodeku || null, taskFilters)
+  const { tasks, loading, loadingMore, hasMore, loadMore } = useInfiniteTasks(null, taskFilters)
   const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading)
 
   const { data: colleaguesData } = useQuery(GET_COLLEAGUES, { pollInterval: 30000 })
@@ -225,17 +229,41 @@ export default function Dashboard() {
     )
   }
 
-  const canManageTask = (task: Task) => task.userKode === me?.kodeku || task.createdBy === me?.kodeku
+  const handleReassign = async (taskId: string, targetUserKode: string) => {
+    try {
+      await updateTaskMutation({
+        variables: { id: taskId, input: { targetUserKode } },
+      })
+      message.success('Task berhasil dilimpahkan ulang!')
+    } catch (err: any) {
+      message.error(err.message || 'Gagal melimpahkan ulang task')
+    }
+  }
+
+  const canManageTask = (task: Task) => task.userKode === me?.kodeku || task.createdBy === me?.kodeku || isLeader
+
+  const assignmentFilteredTasks = useMemo(() => {
+    if (assignmentTab === 'assignedToMe') {
+      return tasks.filter((t) => t.userKode === me?.kodeku)
+    }
+    if (assignmentTab === 'assignedToOthers') {
+      return tasks.filter((t) => t.createdBy === me?.kodeku && t.userKode !== me?.kodeku)
+    }
+    return tasks
+  }, [tasks, assignmentTab, me?.kodeku])
+
+  const assignedToMeCount = useMemo(() => tasks.filter((t) => t.userKode === me?.kodeku).length, [tasks, me?.kodeku])
+  const assignedToOthersCount = useMemo(() => tasks.filter((t) => t.createdBy === me?.kodeku && t.userKode !== me?.kodeku).length, [tasks, me?.kodeku])
 
   const stats = {
     total: teamTaskCounts[me?.kodeku || ''] || 0,
-    pending: tasks.filter((t) => t.status === 'PENDING').length,
-    inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    completed: tasks.filter((t) => t.status === 'COMPLETED').length,
+    pending: tasks.filter((t) => t.userKode === me?.kodeku && t.status === 'PENDING').length,
+    inProgress: tasks.filter((t) => t.userKode === me?.kodeku && t.status === 'IN_PROGRESS').length,
+    completed: tasks.filter((t) => t.userKode === me?.kodeku && t.status === 'COMPLETED').length,
   }
 
-  const filteredTasks = filterTasksByTab(tasks, statusTab)
-  const counts = countTasksByTab(tasks)
+  const filteredTasks = filterTasksByTab(assignmentFilteredTasks, statusTab)
+  const counts = countTasksByTab(assignmentFilteredTasks)
 
   const isAllTab = statusTab === 'all'
   const activeTasks = isAllTab ? filteredTasks.filter((t) => t.status !== 'COMPLETED') : filteredTasks
@@ -338,6 +366,21 @@ export default function Dashboard() {
             loading={loading}
           />
 
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">Filter Penugasan:</Text>
+              <Segmented
+                value={assignmentTab}
+                onChange={(val) => setAssignmentTab(val as 'assignedToMe' | 'assignedToOthers' | 'all')}
+                options={[
+                  { label: `Ditugaskan ke Saya (${assignedToMeCount})`, value: 'assignedToMe', icon: <UserOutlined /> },
+                  { label: `Diberikan oleh Saya (${assignedToOthersCount})`, value: 'assignedToOthers', icon: <SendOutlined /> },
+                  { label: `Semua Task Divisi (${tasks.length})`, value: 'all', icon: <TeamOutlined /> },
+                ]}
+              />
+            </div>
+          </div>
+
           <div className="mb-4">
             <TaskStatusTabs activeKey={statusTab} onChange={setStatusTab} counts={counts} />
           </div>
@@ -364,6 +407,8 @@ export default function Dashboard() {
                 onSetMeta={handleSetMeta}
                 onDeleteMeta={handleDeleteMeta}
                 onReorderMeta={handleReorderMeta}
+                onReassign={handleReassign}
+                members={colleagues}
                 onReorderTasks={(orderedIds) =>
                   reorderTasksMutation({ variables: { orderedIds } })
                     .catch((err) => message.error(err.message || 'Gagal mengubah urutan task'))
@@ -394,6 +439,8 @@ export default function Dashboard() {
                       onSetMeta={handleSetMeta}
                       onDeleteMeta={handleDeleteMeta}
                       onReorderMeta={handleReorderMeta}
+                      onReassign={handleReassign}
+                      members={colleagues}
                       readOnly={!canManageTask(task)}
                     />
                   ))}
@@ -425,6 +472,8 @@ export default function Dashboard() {
                               onSetMeta={handleSetMeta}
                               onDeleteMeta={handleDeleteMeta}
                               onReorderMeta={handleReorderMeta}
+                              onReassign={handleReassign}
+                              members={colleagues}
                               readOnly={!canManageTask(task)}
                             />
                           ))}

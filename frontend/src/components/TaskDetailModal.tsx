@@ -2,17 +2,25 @@ import React from 'react';
 
 import {
     Avatar,
+    message,
     Modal,
     Select,
     Tag,
     Typography,
 } from 'antd';
 
-import { CommentOutlined, UserOutlined } from '@ant-design/icons';
+import {
+    CommentOutlined,
+    CrownOutlined,
+    UserOutlined,
+} from '@ant-design/icons';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
 import { CloudinaryUploadResult } from '../lib/cloudinary';
-import { Colleague, Task } from '../types/task';
+import {
+    Colleague,
+    Task,
+} from '../types/task';
 import { getTaskPriority } from '../utils/taskPriority';
 import CommentThread from './CommentThread';
 import MetaDisplay from './MetaDisplay';
@@ -35,6 +43,7 @@ export default function TaskDetailModal({ open, task, onClose, readOnly, members
     if (!task) return null
     const activeStatus = STATUS_OPTIONS.find((s) => s.value === task.status)
     const currentAssignee = members?.find((m) => m.kodeku === task.userKode)
+    const creator = members?.find((m) => m.kodeku === task.createdBy)
     const priority = getTaskPriority(task)
 
     return (
@@ -55,28 +64,44 @@ export default function TaskDetailModal({ open, task, onClose, readOnly, members
                     <Tag color={activeStatus?.color || 'default'}>{activeStatus?.label || task.status}</Tag>
                 </div>
 
-                {members && members.length > 0 && (
-                    <div className="flex items-center gap-2 my-2 text-xs">
-                        <span className="text-slate-500 font-medium">Penanggung Jawab:</span>
-                        {onReassign && !readOnly ? (
+                <div className="flex flex-wrap items-center gap-y-2 gap-x-4 my-3 text-xs bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                        <span className="text-slate-500 font-semibold">Penanggung Jawab:</span>
+                        {onReassign ? (
                             <Select
                                 size="small"
-                                className="w-52"
-                                value={task.userKode}
-                                onChange={(val) => onReassign(task.id, val)}
-                                options={members.map((m) => ({
+                                className="w-48"
+                                value={task.userKode || undefined}
+                                onChange={async (val) => {
+                                    try {
+                                        await onReassign(task.id, val);
+                                        message.success('Task berhasil dilimpahkan ulang!');
+                                    } catch (err: any) {
+                                        message.error(err.message || 'Gagal reassign task');
+                                    }
+                                }}
+                                options={members?.map((m) => ({
                                     label: m.nama,
                                     value: m.kodeku,
                                 }))}
                             />
                         ) : (
-                            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
+                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
                                 <Avatar size={16} src={currentAssignee?.avatarUrl} icon={!currentAssignee?.avatarUrl && <UserOutlined />} className="!bg-blue-500" />
                                 <span className="font-medium text-slate-700 dark:text-slate-200">{currentAssignee?.nama || task.userKode || 'Unassigned'}</span>
                             </div>
                         )}
                     </div>
-                )}
+
+                    {creator && (
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-slate-500 font-semibold">Pembuat Task:</span>
+                            <Tag icon={<CrownOutlined />} color={creator.statusLeader === 1 ? 'purple' : 'geekblue'} className="rounded-full px-2.5 py-0.5 font-medium m-0">
+                                {creator.nama} {creator.statusLeader === 1 ? '👑' : ''}
+                            </Tag>
+                        </div>
+                    )}
+                </div>
 
                 {task.description ? (
                     <Paragraph className="!text-slate-600 dark:!text-slate-400 whitespace-pre-wrap font-light mt-2">

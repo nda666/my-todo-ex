@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { useMutation } from '@apollo/client';
+import React, {
+    useMemo,
+    useState,
+} from 'react';
 
 import {
     Avatar,
-    Badge,
     Button,
     Card,
-    Drawer,
     Empty,
+    message,
     Modal,
     Progress,
     Select,
@@ -15,14 +16,13 @@ import {
     Tag,
     Tooltip,
     Typography,
-    message,
 } from 'antd';
 
 import {
     AlertOutlined,
     CheckCircleOutlined,
     DashboardOutlined,
-    InfoCircleOutlined,
+    FileExcelOutlined,
     RedoOutlined,
     RobotOutlined,
     RocketOutlined,
@@ -30,9 +30,14 @@ import {
     ThunderboltOutlined,
     UserOutlined,
 } from '@ant-design/icons';
+import { useMutation } from '@apollo/client';
 
-import { Colleague, Task } from '../types/task';
 import { ASK_DORA } from '../graphql/dora';
+import {
+    Colleague,
+    Task,
+} from '../types/task';
+import ExportWorkloadReportModal from './ExportWorkloadReportModal';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -119,6 +124,7 @@ export default function WorkloadCapacityWidget({
     const [reassigning, setReassigning] = useState(false);
 
     // AI Workload Advisor State
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [aiAnalysisResult, setAiAnalysisResult] = useState<string | null>(null);
     const [executingAiTaskId, setExecutingAiTaskId] = useState<string | null>(null);
@@ -168,7 +174,7 @@ export default function WorkloadCapacityWidget({
         const totalMembers = workloadList.length;
         const totalActiveTasks = workloadList.reduce((acc, curr) => acc + curr.activeTasks, 0);
         const avgActiveTasks = totalMembers > 0 ? (totalActiveTasks / totalMembers).toFixed(1) : '0';
-        
+
         const overloaded = workloadList.filter((w) => w.level === 'OVERLOADED');
         const heavy = workloadList.filter((w) => w.level === 'HEAVY');
         const optimal = workloadList.filter((w) => w.level === 'OPTIMAL');
@@ -312,6 +318,14 @@ export default function WorkloadCapacityWidget({
 
                 <div className="flex items-center gap-2 flex-wrap">
                     <Button
+                        type="default"
+                        icon={<FileExcelOutlined />}
+                        onClick={() => setIsExportModalOpen(true)}
+                        className="text-xs font-semibold rounded-xl !border-emerald-500 !text-emerald-600 hover:!bg-emerald-50 dark:hover:!bg-emerald-950/40"
+                    >
+                        Ekspor Laporan
+                    </Button>
+                    <Button
                         type="primary"
                         icon={<RobotOutlined />}
                         onClick={handleRunAiAnalysis}
@@ -392,11 +406,10 @@ export default function WorkloadCapacityWidget({
                             size="small"
                             type={selectedLevelFilter === f.key ? 'primary' : 'text'}
                             onClick={() => setSelectedLevelFilter(f.key)}
-                            className={`rounded-lg text-xs font-medium ${
-                                selectedLevelFilter === f.key
+                            className={`rounded-lg text-xs font-medium ${selectedLevelFilter === f.key
                                     ? ''
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            }`}
+                                }`}
                         >
                             {f.label}
                         </Button>
@@ -532,11 +545,10 @@ export default function WorkloadCapacityWidget({
                                             <div
                                                 key={task.id}
                                                 onClick={() => setSelectedTaskToReassign(task)}
-                                                className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-                                                    selectedTaskToReassign?.id === task.id
+                                                className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${selectedTaskToReassign?.id === task.id
                                                         ? 'bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-600'
                                                         : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:border-slate-300'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div>
                                                     <div className="font-semibold text-slate-800 dark:text-slate-200">
@@ -717,6 +729,14 @@ export default function WorkloadCapacityWidget({
                     </div>
                 </div>
             </Modal>
+
+            {/* Export Workload Report Modal */}
+            <ExportWorkloadReportModal
+                open={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                members={members}
+                tasks={tasks}
+            />
         </Card>
     );
 }

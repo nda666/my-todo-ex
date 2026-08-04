@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import {
     Avatar,
     Button,
-    Card,
     Popconfirm,
     Tag,
     Typography,
@@ -11,6 +10,7 @@ import {
 
 import {
     CommentOutlined,
+    CrownOutlined,
     DeleteOutlined,
     EditOutlined,
     FieldTimeOutlined,
@@ -54,6 +54,7 @@ export default function TeamBoardTaskCard({
 
     const activeStatus = STATUS_OPTIONS.find((s) => s.value === task.status)
     const assignee = members?.find((m) => m.kodeku === task.userKode)
+    const creator = members?.find((m) => m.kodeku === task.createdBy)
     const priority = getTaskPriority(task)
 
     const handleEditSubmit = async (id: string, input: any) => {
@@ -68,11 +69,10 @@ export default function TeamBoardTaskCard({
     return (
         <>
             <div
-                className={`bg-white dark:bg-slate-850/90 border transition-all duration-200 rounded-2xl p-4 mb-3.5 shadow-xs hover:shadow-md ${
-                    task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value)
+                className={`bg-white dark:bg-slate-850/90 border transition-all duration-200 rounded-2xl p-4 mb-3.5 shadow-xs hover:shadow-md ${task.meta?.some((m) => (m.key === 'dependsOn' || m.key === 'blockedBy') && m.value)
                         ? 'border-red-300 dark:border-red-900/80 bg-red-50/20 dark:bg-red-950/10'
                         : 'border-slate-200/90 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500'
-                }`}
+                    }`}
             >
                 {/* Header: Title & Badges */}
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -112,21 +112,28 @@ export default function TeamBoardTaskCard({
                     </Text>
                 )}
 
-                {/* Footer Meta: Time & Assignee */}
-                <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] !text-slate-500 dark:!text-slate-400">
+                {/* Footer Meta: Time, Creator, & Assignee */}
+                <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] !text-slate-500 dark:!text-slate-400 flex-wrap">
                     <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
                         <FieldTimeOutlined className="text-slate-400" />
                         <span>{new Date(task.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
                     </div>
 
-                    {assignee ? (
-                        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/80 px-2.5 py-1 rounded-full text-slate-700 dark:text-slate-200 text-[11px] font-medium shadow-2xs">
-                            <Avatar size={16} src={assignee.avatarUrl} icon={!assignee.avatarUrl && <UserOutlined />} className="!bg-blue-500 text-white" />
-                            <span className="truncate max-w-[90px]">{assignee.nama}</span>
-                        </div>
-                    ) : (
-                        <span className="text-[11px] italic text-slate-400">Belum ditugaskan</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                        {creator && (
+                            <Tag icon={<CrownOutlined />} color={creator.statusLeader === 1 ? 'purple' : 'geekblue'} className="m-0 text-[10px] rounded-full px-2">
+                                {creator.nama}
+                            </Tag>
+                        )}
+                        {assignee ? (
+                            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/80 px-2 py-0.5 rounded-full text-slate-700 dark:text-slate-200 text-[10px] font-medium shadow-2xs">
+                                <Avatar size={14} src={assignee.avatarUrl} icon={!assignee.avatarUrl && <UserOutlined />} className="!bg-blue-500 text-white" />
+                                <span className="truncate max-w-[80px]">{assignee.nama}</span>
+                            </div>
+                        ) : (
+                            <span className="text-[10px] italic text-slate-400">Belum ditugaskan</span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Actions Toolbar */}
