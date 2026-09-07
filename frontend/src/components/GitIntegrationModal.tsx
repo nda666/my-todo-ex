@@ -67,9 +67,10 @@ export default function GitIntegrationModal({
 }: GitIntegrationModalProps) {
   const jwtToken = getToken() || '';
   const serverUrl =
-    typeof window !== 'undefined'
+    (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') ||
+    (typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.hostname}:8080`
-      : 'http://localhost:8080';
+      : 'http://localhost:8080');
   const webhookUrl = `${serverUrl}/api/webhooks/git`;
 
   // Webhook tokens state

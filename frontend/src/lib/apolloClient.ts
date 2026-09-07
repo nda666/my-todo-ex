@@ -93,7 +93,8 @@ export class IndexedDBWrapper implements PersistentStorage<string | null> {
   }
 }
 
-const httpLink = new HttpLink({ uri: "/query" });
+const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const httpLink = new HttpLink({ uri: apiBase ? `${apiBase}/query` : '/query' });
 
 const authLink = new ApolloLink((operation, forward) => {
   const token = getToken();
@@ -114,6 +115,13 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 });
 
 const getWsUrl = () => {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+  if (apiBase) {
+    const wsBase = apiBase.replace(/^http/, 'ws');
+    return `${wsBase}/subscriptions`;
+  }
   if (typeof window === "undefined") return "ws://localhost:8080/subscriptions";
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/subscriptions`;

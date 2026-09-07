@@ -43,7 +43,8 @@ export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch("/api/upload-avatar", {
+  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  const res = await fetch(`${apiBase}/api/upload-avatar`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: formData,

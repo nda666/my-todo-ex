@@ -72,12 +72,27 @@ func main() {
 	http.Handle("/query", authMiddleware(authService, h))
 	http.Handle("/subscriptions", ws.NewHandler(&schema.Schema, authService))
 
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://127.0.0.1:5173"},
+	corsOptions := cors.Options{
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Git-Token"},
 		AllowCredentials: true,
-	})
+	}
+
+	if cfg.CorsAllowedOrigins != "" {
+		origins := []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+		for _, o := range strings.Split(cfg.CorsAllowedOrigins, ",") {
+			if trimmed := strings.TrimSpace(o); trimmed != "" {
+				origins = append(origins, trimmed)
+			}
+		}
+		corsOptions.AllowedOrigins = origins
+	} else {
+		corsOptions.AllowOriginFunc = func(origin string) bool {
+			return true
+		}
+	}
+
+	c := cors.New(corsOptions)
 
 	port := cfg.ServerPort
 	log.Printf("server running on http://localhost:%s/query", port)

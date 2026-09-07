@@ -216,7 +216,8 @@ export default function ProjectDetail() {
         if (!projectId) return;
         setDownloadingReport(true);
         try {
-            const res = await fetch(`/api/reports/project-summary?projectId=${projectId}`, {
+            const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+            const res = await fetch(`${apiBase}/api/reports/project-summary?projectId=${projectId}`, {
                 headers: {
                     Authorization: `Bearer ${sessionStorage.getItem('token') || ''}`,
                 },

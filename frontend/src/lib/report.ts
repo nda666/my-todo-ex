@@ -14,7 +14,8 @@ export async function downloadTeamReport(
   });
   if (styleNotes) params.set("style", styleNotes);
 
-  const res = await fetch(`/api/reports/team-summary?${params.toString()}`, {
+  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  const res = await fetch(`${apiBase}/api/reports/team-summary?${params.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
