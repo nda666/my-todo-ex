@@ -263,6 +263,38 @@ func FormatDivisionProgress(dp models.DivisionProgress) map[string]interface{} {
 	}
 }
 
+func FormatProjectWorkflowStep(step models.ProjectWorkflowStep) map[string]interface{} {
+	var parentID interface{}
+	if step.ParentID != nil {
+		parentID = strconv.FormatUint(uint64(*step.ParentID), 10)
+	}
+
+	children := make([]map[string]interface{}, len(step.Children))
+	for i, c := range step.Children {
+		children[i] = FormatProjectWorkflowStep(c)
+	}
+
+	status := step.Status
+	if status == "" {
+		status = models.WorkflowStepStatusPending
+	}
+
+	return map[string]interface{}{
+		"id":          strconv.FormatUint(uint64(step.ID), 10),
+		"projectId":   strconv.FormatUint(uint64(step.ProjectID), 10),
+		"parentId":    parentID,
+		"title":       step.Title,
+		"description": step.Description,
+		"divisiKode":  step.DivisiKode,
+		"status":      status,
+		"sortOrder":   step.SortOrder,
+		"createdBy":   step.CreatedBy,
+		"createdAt":   FormatTime(step.CreatedAt),
+		"updatedAt":   FormatTime(step.UpdatedAt),
+		"children":    children,
+	}
+}
+
 func FormatProject(project models.Project) map[string]interface{} {
 	divisions := make([]int, len(project.Divisions))
 	for i, d := range project.Divisions {
@@ -275,6 +307,10 @@ func FormatProject(project models.Project) map[string]interface{} {
 	histories := make([]map[string]interface{}, len(project.StageHistory))
 	for i, h := range project.StageHistory {
 		histories[i] = FormatProjectStageHistory(h)
+	}
+	workflowSteps := make([]map[string]interface{}, len(project.WorkflowSteps))
+	for i, ws := range project.WorkflowSteps {
+		workflowSteps[i] = FormatProjectWorkflowStep(ws)
 	}
 
 	stage := project.Stage
@@ -298,6 +334,7 @@ func FormatProject(project models.Project) map[string]interface{} {
 		"divisions":        divisions,
 		"leaders":          leaders,
 		"stageHistory":     histories,
+		"workflowSteps":    workflowSteps,
 		"divisionProgress": make([]map[string]interface{}, 0),
 	}
 }

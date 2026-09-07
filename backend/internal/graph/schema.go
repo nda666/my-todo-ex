@@ -49,6 +49,11 @@ func NewSchema(repos *repository.Repositories, authService *auth.Service, aiClie
 		mutationFields[k] = v
 	}
 
+	subscriptionFields := graphql.Fields{}
+	for k, v := range task.SubscriptionFields(taskTypes) {
+		subscriptionFields[k] = v
+	}
+
 	rootQuery := graphql.NewObject(graphql.ObjectConfig{
 		Name:   "Query",
 		Fields: queryFields,
@@ -57,10 +62,18 @@ func NewSchema(repos *repository.Repositories, authService *auth.Service, aiClie
 		Name:   "Mutation",
 		Fields: mutationFields,
 	})
+	rootSubscription := graphql.NewObject(graphql.ObjectConfig{
+		Name:   "Subscription",
+		Fields: subscriptionFields,
+	})
 
 	schema, err := graphql.NewSchema(graphql.SchemaConfig{
-		Query:    rootQuery,
-		Mutation: rootMutation,
+		Query:        rootQuery,
+		Mutation:     rootMutation,
+		Subscription: rootSubscription,
+		Types: []graphql.Type{
+			projectTypes.ProjectWorkflowStepType,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create schema: %w", err)

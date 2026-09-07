@@ -1,3 +1,5 @@
+import { ProjectWorkflowStep } from './workflow';
+
 export type ProjectStage =
   | 'PLANNING'
   | 'IN_PROGRESS'
@@ -57,4 +59,5 @@ export interface Project {
   leaders: string[];
   stageHistory?: ProjectStageHistory[];
   divisionProgress?: DivisionProgress[];
+  workflowSteps?: ProjectWorkflowStep[];
 }

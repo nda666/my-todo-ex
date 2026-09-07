@@ -199,6 +199,43 @@ type Query {
   task(id: ID!): Task
 }
 
+enum WorkflowStepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+type ProjectWorkflowStep {
+  id: ID!
+  projectId: ID!
+  parentId: ID
+  title: String!
+  description: String
+  divisiKode: Int
+  status: WorkflowStepStatus!
+  sortOrder: Int!
+  createdBy: String!
+  createdAt: String!
+  updatedAt: String!
+  children: [ProjectWorkflowStep!]!
+}
+
+input CreateProjectWorkflowStepInput {
+  projectId: ID!
+  parentId: ID
+  title: String!
+  description: String
+  divisiKode: Int
+  status: WorkflowStepStatus
+}
+
+input UpdateProjectWorkflowStepInput {
+  title: String
+  description: String
+  divisiKode: Int
+  status: WorkflowStepStatus
+}
+
 type Mutation {
   login(username: String!, password: String!): AuthPayload!
   createTask(input: CreateTaskInput!): Task!
@@ -220,4 +257,8 @@ type Mutation {
   updateSubtask(id: ID!, input: UpdateSubtaskInput!): Subtask!
   deleteSubtask(id: ID!): Boolean!
   reorderSubtasks(taskId: ID!, orderedIds: [ID!]!): Boolean!
+  createProjectWorkflowStep(input: CreateProjectWorkflowStepInput!): ProjectWorkflowStep!
+  updateProjectWorkflowStep(id: ID!, input: UpdateProjectWorkflowStepInput!): ProjectWorkflowStep!
+  deleteProjectWorkflowStep(id: ID!): Boolean!
+  reorderProjectWorkflowSteps(projectId: ID!, parentId: ID, orderedIds: [ID!]!): Boolean!
 }

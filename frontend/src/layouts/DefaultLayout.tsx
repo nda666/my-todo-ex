@@ -71,6 +71,8 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
             }}
             onLogout={handleLogout}
             stats={stats}
+            collapsed={false}
+            onNavigate={() => setMobileOpen(false)}
         />
     )
 
@@ -90,6 +92,8 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
                         onCreateTask={onCreateTask}
                         onLogout={handleLogout}
                         stats={stats}
+                        collapsed={collapsed}
+                        onToggleCollapse={setCollapsed}
                     />
                 </div>
             )}
@@ -129,7 +133,7 @@ export default function DefaultLayout({ title, teamMembers, teamTaskCounts, stat
                     </div>
                 </Header>
 
-                <Content className="max-w-5xl w-full mx-auto p-3 sm:p-6">
+                <Content className="w-full p-3 sm:p-6 mb-32">
                     {children}
                 </Content>
             </Layout>

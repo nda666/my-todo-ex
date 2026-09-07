@@ -25,7 +25,7 @@ export function useInfiniteTasks(userKode?: string | null, filters?: TaskFilters
     projectId: filters?.projectId || null,
   };
 
-  const { data, loading, fetchMore, networkStatus } = useQuery(GET_TASKS, {
+  const { data, loading, fetchMore, networkStatus, refetch } = useQuery(GET_TASKS, {
     variables: queryVariables,
     notifyOnNetworkStatusChange: true,
     skip: userKode === undefined,
@@ -55,5 +55,5 @@ export function useInfiniteTasks(userKode?: string | null, filters?: TaskFilters
     });
   }, [hasMore, loadingMore, nextCursor, queryVariables, fetchMore]);
 
-  return { tasks, loading: loading && !data, loadingMore, hasMore, loadMore };
+  return { tasks, loading: loading && !data, loadingMore, hasMore, loadMore, refetch };
 }

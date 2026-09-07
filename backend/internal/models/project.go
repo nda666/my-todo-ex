@@ -33,10 +33,11 @@ type Project struct {
 	CreatedAt       time.Time     `gorm:"autoCreateTime"`
 	UpdatedAt       time.Time     `gorm:"autoUpdateTime"`
 
-	Divisions    []ProjectDivision    `gorm:"foreignKey:ProjectID"`
-	Leaders      []ProjectLeader      `gorm:"foreignKey:ProjectID"`
-	Tasks        []ProjectTask        `gorm:"foreignKey:ProjectID"`
-	StageHistory []ProjectStageHistory `gorm:"foreignKey:ProjectID"`
+	Divisions     []ProjectDivision    `gorm:"foreignKey:ProjectID"`
+	Leaders       []ProjectLeader      `gorm:"foreignKey:ProjectID"`
+	Tasks         []ProjectTask        `gorm:"foreignKey:ProjectID"`
+	StageHistory  []ProjectStageHistory `gorm:"foreignKey:ProjectID"`
+	WorkflowSteps []ProjectWorkflowStep `gorm:"foreignKey:ProjectID"`
 }
 
 func (Project) TableName() string { return "xv_project" }

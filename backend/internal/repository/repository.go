@@ -18,6 +18,8 @@ type Repositories struct {
 	Profile    ProfileRepository
 	Project    ProjectRepository
 	Subtask    SubtaskRepository
+	User       UserRepository
+	DB         *gorm.DB
 }
 
 func NewRepositories(db *gorm.DB, doranClient *doranapi.Client, c *cache.Cache) *Repositories {
@@ -33,5 +35,7 @@ func NewRepositories(db *gorm.DB, doranClient *doranapi.Client, c *cache.Cache) 
 		Profile:    NewProfileRepository(db),
 		Project:    NewProjectRepository(db),
 		Subtask:    NewSubtaskRepository(db),
+		User:       NewUserRepository(db),
+		DB:         db,
 	}
 }

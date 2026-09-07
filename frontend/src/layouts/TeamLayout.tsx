@@ -113,6 +113,8 @@ export default function TeamLayout({
                         isLeader={me?.pegawai?.statusLeader === 1}
                         currentDivisiKode={currentDivisiKode}
                         onLogout={handleLogout}
+                        collapsed={collapsed}
+                        onToggleCollapse={setCollapsed}
                     />
                 </div>
             )}
@@ -131,6 +133,8 @@ export default function TeamLayout({
                         isLeader={me?.pegawai?.statusLeader === 1}
                         currentDivisiKode={currentDivisiKode}
                         onLogout={handleLogout}
+                        collapsed={false}
+                        onNavigate={() => setMobileOpen(false)}
                     />
                 </Drawer>
             )}
@@ -160,7 +164,7 @@ export default function TeamLayout({
                     </div>
                 </Header>
 
-                <Content className={wide ? 'p-3 sm:p-6 flex flex-col' : 'flex flex-col max-w-5xl w-full mx-auto p-3 sm:p-6'}>
+                <Content className="w-full p-3 sm:p-6 flex flex-col">
                     <TeamLayoutContext.Provider value={{ setPageHeader: setPageHeaderStable }}>
                         <Outlet />
                     </TeamLayoutContext.Provider>

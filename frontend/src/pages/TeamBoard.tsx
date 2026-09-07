@@ -24,7 +24,9 @@ import {
 
 import {
     AlertOutlined,
+    BranchesOutlined,
     CheckCircleOutlined,
+    CodeOutlined,
     CrownFilled,
     DashboardOutlined,
     PlusOutlined,
@@ -36,7 +38,7 @@ import {
     ThunderboltOutlined,
     UserOutlined,
 } from '@ant-design/icons';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, useSubscription } from '@apollo/client';
 import {
     closestCenter,
     DndContext,
@@ -51,8 +53,13 @@ import {
 import CreateTaskModal from '../components/CreateTaskModal';
 import DragTaskPreview from '../components/DragTaskPreview';
 import TeamBoardColumn from '../components/TeamBoardColumn';
+import LiveTeamActivityStream from '../components/LiveTeamActivityStream';
+import GitIntegrationModal from '../components/GitIntegrationModal';
+import ProgrammerTemplateModal from '../components/ProgrammerTemplateModal';
 import { CAPACITY_LIMIT_PER_MEMBER, getWorkloadInfo, MemberWorkloadInfo } from '../components/WorkloadCapacityWidget';
 import { useAuth } from '../contexts/AuthContext';
+import { TASK_EVENT_SUBSCRIPTION } from '../graphql/tasks';
+import { applyTaskEventToCache } from '../lib/taskCacheUpdates';
 import { ASK_DORA } from '../graphql/dora';
 import { useTeamHeader } from '../layouts/TeamLayout';
 import { CREATE_TASK, GET_COLLEAGUES_BY_DIVISI, GET_TASKS, UPDATE_TASK } from '../lib/queries';
@@ -73,6 +80,9 @@ export default function TeamBoard() {
     const [selectedTaskToReassign, setSelectedTaskToReassign] = useState<Task | null>(null);
     const [targetUserKode, setTargetUserKode] = useState<string | null>(null);
     const [reassigning, setReassigning] = useState(false);
+    const [isActivityStreamOpen, setIsActivityStreamOpen] = useState(false);
+    const [isGitModalOpen, setIsGitModalOpen] = useState(false);
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
     const isLeader = me?.pegawai?.statusLeader === 1;
 
@@ -93,6 +103,14 @@ export default function TeamBoard() {
         fetchPolicy: 'cache-and-network',
     });
     const teamTasks: Task[] = useMemo(() => tasksData?.tasks?.tasks || [], [tasksData]);
+
+    useSubscription(TASK_EVENT_SUBSCRIPTION, {
+        variables: { divisiKode: divisiKode || undefined },
+        skip: !divisiKode,
+        onData: ({ client, data }) => {
+            applyTaskEventToCache(client.cache, data?.data?.taskEvent);
+        },
+    });
 
     const [createTaskMutation, { loading: creatingTask }] = useMutation(CREATE_TASK);
     const [updateTaskMutation] = useMutation(UPDATE_TASK);
@@ -138,6 +156,10 @@ export default function TeamBoard() {
         }
 
         if (targetUserKode && targetUserKode !== activeTask.userKode) {
+            if (!isLeader) {
+                message.warning('Hanya manager atau leader yang dapat mengubah penanggung jawab task');
+                return;
+            }
             const targetMember = members.find((m) => m.kodeku === targetUserKode);
             try {
                 await updateTaskMutation({
@@ -295,6 +317,10 @@ export default function TeamBoard() {
     };
 
     const handleApplyAiReassign = async (taskId: string, targetKode: string) => {
+        if (!isLeader) {
+            message.error('Hanya manager atau leader yang dapat mengubah penanggung jawab task');
+            return;
+        }
         setExecutingAiTaskId(taskId);
         try {
             await updateTaskMutation({
@@ -357,6 +383,10 @@ export default function TeamBoard() {
 
     const handleExecuteReassign = async () => {
         if (!selectedTaskToReassign || !targetUserKode) return;
+        if (!isLeader) {
+            message.error('Hanya manager atau leader yang dapat mengubah penanggung jawab task');
+            return;
+        }
         setReassigning(true);
         try {
             await updateTaskMutation({
@@ -412,6 +442,30 @@ export default function TeamBoard() {
                             className="text-xs text-slate-600 dark:text-slate-300 rounded-lg"
                         >
                             Refresh
+                        </Button>
+                        <Button
+                            size="small"
+                            icon={<ThunderboltOutlined className="text-amber-500" />}
+                            onClick={() => setIsActivityStreamOpen(true)}
+                            className="text-xs text-slate-600 dark:text-slate-300 rounded-lg"
+                        >
+                            Activity Stream
+                        </Button>
+                        <Button
+                            size="small"
+                            icon={<CodeOutlined className="text-blue-500" />}
+                            onClick={() => setIsTemplateModalOpen(true)}
+                            className="text-xs text-slate-600 dark:text-slate-300 rounded-lg"
+                        >
+                            Template Task
+                        </Button>
+                        <Button
+                            size="small"
+                            icon={<BranchesOutlined className="text-violet-500" />}
+                            onClick={() => setIsGitModalOpen(true)}
+                            className="text-xs text-slate-600 dark:text-slate-300 rounded-lg"
+                        >
+                            Git Hook
                         </Button>
                         <Tag color="blue" className="text-xs font-semibold px-3 py-1 rounded-full m-0">
                             Total Aktif: {summary.totalActiveTasks} Task
@@ -834,6 +888,24 @@ export default function TeamBoard() {
                     </div>
                 )}
             </Modal>
+
+            <LiveTeamActivityStream
+                open={isActivityStreamOpen}
+                onClose={() => setIsActivityStreamOpen(false)}
+                divisiKode={divisiKode}
+            />
+
+            <GitIntegrationModal
+                open={isGitModalOpen}
+                onClose={() => setIsGitModalOpen(false)}
+                onTaskCreated={handleRefresh}
+            />
+
+            <ProgrammerTemplateModal
+                open={isTemplateModalOpen}
+                onClose={() => setIsTemplateModalOpen(false)}
+                onSuccess={handleRefresh}
+            />
         </div>
     );
 }

@@ -1,6 +1,49 @@
 import { gql } from "@apollo/client";
 
+export const WORKFLOW_STEP_FIELDS = gql`
+  fragment WorkflowStepFields on ProjectWorkflowStep {
+    id
+    projectId
+    parentId
+    title
+    description
+    divisiKode
+    status
+    sortOrder
+    createdBy
+    createdAt
+    updatedAt
+    children {
+      id
+      projectId
+      parentId
+      title
+      description
+      divisiKode
+      status
+      sortOrder
+      createdBy
+      createdAt
+      updatedAt
+      children {
+        id
+        projectId
+        parentId
+        title
+        description
+        divisiKode
+        status
+        sortOrder
+        createdBy
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
 export const PROJECT_FIELDS = gql`
+  ${WORKFLOW_STEP_FIELDS}
   fragment ProjectFields on Project {
     id
     name
@@ -26,6 +69,9 @@ export const PROJECT_FIELDS = gql`
       totalTasks
       completedTasks
       percentDone
+    }
+    workflowSteps {
+      ...WorkflowStepFields
     }
   }
 `;

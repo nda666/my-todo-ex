@@ -37,10 +37,55 @@ function PublicRoute({ children }) {
   return isLoggedIn ? <Navigate to="/" replace /> : children
 }
 
-function DoraWidgetGate() {
+import React, { useEffect, useRef, useState } from 'react';
+import QuickCaptureModal from './components/QuickCaptureModal';
+
+function GlobalToolsGate() {
   const { isLoggedIn } = useAuth()
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
+  const lastToggleRef = useRef(0)
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K atau Cmd+K untuk Quick Capture
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.repeat) return
+
+        const now = Date.now()
+        if (now - lastToggleRef.current < 300) return
+        lastToggleRef.current = now
+
+        setQuickCaptureOpen((prev) => !prev)
+      }
+    }
+
+    const handleOpenCustom = () => {
+      setQuickCaptureOpen(true)
+    }
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    window.addEventListener('open-quick-capture', handleOpenCustom)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true })
+      window.removeEventListener('open-quick-capture', handleOpenCustom)
+    }
+  }, [isLoggedIn])
+
   if (!isLoggedIn) return null
-  return <DoraWidget />
+  return (
+    <>
+      <DoraWidget />
+      <QuickCaptureModal
+        open={quickCaptureOpen}
+        onClose={() => setQuickCaptureOpen(false)}
+      />
+    </>
+  )
 }
 
 // Satu instance TeamLayout dipakai bareng oleh semua route di dalamnya (lewat <Outlet />),
@@ -86,7 +131,7 @@ function AppRoutes() {
         </PrivateRoute>
       )}
       <PrivateRoute>
-        <DoraWidgetGate />
+        <GlobalToolsGate />
       </PrivateRoute>
     </>
   )

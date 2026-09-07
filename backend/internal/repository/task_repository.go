@@ -174,10 +174,63 @@ func (r *taskRepository) Save(ctx context.Context, task *models.Task) error {
 }
 
 func (r *taskRepository) Delete(ctx context.Context, id uint, kodeku string) (bool, error) {
-	result := r.db.WithContext(ctx).
-		Where("id = ? AND (user_kode = ? OR created_by = ?)", id, kodeku, kodeku).
-		Delete(&models.Task{})
-	return result.RowsAffected > 0, result.Error
+	var rowsAffected int64
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. Cek kepemilikan task
+		var task models.Task
+		if err := tx.Where("id = ? AND (user_kode = ? OR created_by = ?)", id, kodeku, kodeku).First(&task).Error; err != nil {
+			return err
+		}
+
+		// 2. Hapus relasi project task jika ada
+		_ = tx.Table("xv_project_task").Where("task_id = ?", id).Delete(nil).Error
+
+		// 3. Hapus subtasks
+		if err := tx.Where("task_id = ?", id).Delete(&models.Subtask{}).Error; err != nil {
+			return err
+		}
+
+		// 4. Hapus task meta
+		if err := tx.Where("task_id = ?", id).Delete(&models.TaskMeta{}).Error; err != nil {
+			return err
+		}
+
+		// 5. Ambil semua komentar untuk menghapus child attachments, reactions, dan replies
+		var commentIDs []uint
+		if err := tx.Table("xv_task_comment").Where("task_id = ?", id).Pluck("id", &commentIDs).Error; err != nil {
+			return err
+		}
+
+		if len(commentIDs) > 0 {
+			// Hapus reactions
+			_ = tx.Table("xv_task_comment_reaction").Where("comment_id IN ?", commentIDs).Delete(nil).Error
+			// Hapus attachments
+			_ = tx.Table("xv_task_comment_attachment").Where("comment_id IN ?", commentIDs).Delete(nil).Error
+			// Hapus replies (parent_id)
+			_ = tx.Table("xv_task_comment").Where("parent_id IN ?", commentIDs).Delete(nil).Error
+			// Hapus comments utama
+			if err := tx.Table("xv_task_comment").Where("task_id = ?", id).Delete(nil).Error; err != nil {
+				return err
+			}
+		}
+
+		// 6. Hapus task utama
+		delRes := tx.Where("id = ?", id).Delete(&models.Task{})
+		if delRes.Error != nil {
+			return delRes.Error
+		}
+		rowsAffected = delRes.RowsAffected
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return rowsAffected > 0, nil
 }
 
 func (r *taskRepository) FindByUserKodesInRange(ctx context.Context, userKodes []string, from, to time.Time) ([]models.Task, error) {

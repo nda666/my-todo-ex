@@ -7,10 +7,14 @@ import (
 )
 
 type Types struct {
-	ProjectStageEnum        *graphql.Enum
-	ProjectStageHistoryType *graphql.Object
-	DivisionProgressType    *graphql.Object
-	ProjectType             *graphql.Object
+	ProjectStageEnum                 *graphql.Enum
+	ProjectStageHistoryType          *graphql.Object
+	DivisionProgressType             *graphql.Object
+	WorkflowStepStatusEnum           *graphql.Enum
+	ProjectWorkflowStepType          *graphql.Object
+	CreateProjectWorkflowStepInputType *graphql.InputObject
+	UpdateProjectWorkflowStepInputType *graphql.InputObject
+	ProjectType                      *graphql.Object
 }
 
 func BuildTypes() *Types {
@@ -24,6 +28,15 @@ func BuildTypes() *Types {
 			"ON_HOLD":     &graphql.EnumValueConfig{Value: models.ProjectStageOnHold},
 			"CANCELLED":   &graphql.EnumValueConfig{Value: models.ProjectStageCancelled},
 			"DONE":        &graphql.EnumValueConfig{Value: models.ProjectStageDone},
+		},
+	})
+
+	workflowStepStatusEnum := graphql.NewEnum(graphql.EnumConfig{
+		Name: "WorkflowStepStatus",
+		Values: graphql.EnumValueConfigMap{
+			"PENDING":     &graphql.EnumValueConfig{Value: models.WorkflowStepStatusPending},
+			"IN_PROGRESS": &graphql.EnumValueConfig{Value: models.WorkflowStepStatusInProgress},
+			"COMPLETED":   &graphql.EnumValueConfig{Value: models.WorkflowStepStatusCompleted},
 		},
 	})
 
@@ -50,6 +63,49 @@ func BuildTypes() *Types {
 		},
 	})
 
+	var projectWorkflowStepType *graphql.Object
+	projectWorkflowStepType = graphql.NewObject(graphql.ObjectConfig{
+		Name: "ProjectWorkflowStep",
+		Fields: graphql.FieldsThunk(func() graphql.Fields {
+			return graphql.Fields{
+				"id":          &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
+				"projectId":   &graphql.Field{Type: graphql.NewNonNull(graphql.ID)},
+				"parentId":    &graphql.Field{Type: graphql.ID},
+				"title":       &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+				"description": &graphql.Field{Type: graphql.String},
+				"divisiKode":  &graphql.Field{Type: graphql.Int},
+				"status":      &graphql.Field{Type: graphql.NewNonNull(workflowStepStatusEnum)},
+				"sortOrder":   &graphql.Field{Type: graphql.NewNonNull(graphql.Int)},
+				"createdBy":   &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+				"createdAt":   &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+				"updatedAt":   &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+				"children":    &graphql.Field{Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(projectWorkflowStepType)))},
+			}
+		}),
+	})
+
+	createProjectWorkflowStepInputType := graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "CreateProjectWorkflowStepInput",
+		Fields: graphql.InputObjectConfigFieldMap{
+			"projectId":   &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.ID)},
+			"parentId":    &graphql.InputObjectFieldConfig{Type: graphql.ID},
+			"title":       &graphql.InputObjectFieldConfig{Type: graphql.NewNonNull(graphql.String)},
+			"description": &graphql.InputObjectFieldConfig{Type: graphql.String},
+			"divisiKode":  &graphql.InputObjectFieldConfig{Type: graphql.Int},
+			"status":      &graphql.InputObjectFieldConfig{Type: workflowStepStatusEnum},
+		},
+	})
+
+	updateProjectWorkflowStepInputType := graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "UpdateProjectWorkflowStepInput",
+		Fields: graphql.InputObjectConfigFieldMap{
+			"title":       &graphql.InputObjectFieldConfig{Type: graphql.String},
+			"description": &graphql.InputObjectFieldConfig{Type: graphql.String},
+			"divisiKode":  &graphql.InputObjectFieldConfig{Type: graphql.Int},
+			"status":      &graphql.InputObjectFieldConfig{Type: workflowStepStatusEnum},
+		},
+	})
+
 	projectType := graphql.NewObject(graphql.ObjectConfig{
 		Name: "Project",
 		Fields: graphql.Fields{
@@ -65,13 +121,18 @@ func BuildTypes() *Types {
 			"leaders":          &graphql.Field{Type: graphql.NewList(graphql.NewNonNull(graphql.String))},
 			"stageHistory":     &graphql.Field{Type: graphql.NewList(graphql.NewNonNull(projectStageHistoryType))},
 			"divisionProgress": &graphql.Field{Type: graphql.NewList(graphql.NewNonNull(divisionProgressType))},
+			"workflowSteps":    &graphql.Field{Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(projectWorkflowStepType)))},
 		},
 	})
 
 	return &Types{
-		ProjectStageEnum:        projectStageEnum,
-		ProjectStageHistoryType: projectStageHistoryType,
-		DivisionProgressType:    divisionProgressType,
-		ProjectType:             projectType,
+		ProjectStageEnum:                 projectStageEnum,
+		ProjectStageHistoryType:          projectStageHistoryType,
+		DivisionProgressType:             divisionProgressType,
+		WorkflowStepStatusEnum:           workflowStepStatusEnum,
+		ProjectWorkflowStepType:          projectWorkflowStepType,
+		CreateProjectWorkflowStepInputType: createProjectWorkflowStepInputType,
+		UpdateProjectWorkflowStepInputType: updateProjectWorkflowStepInputType,
+		ProjectType:                      projectType,
 	}
 }

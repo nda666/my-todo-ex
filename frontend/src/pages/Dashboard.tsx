@@ -12,20 +12,25 @@ import {
   message,
   Segmented,
   Spin,
+  Tooltip,
   Typography,
 } from 'antd';
 
 import {
   AppstoreOutlined,
+  BranchesOutlined,
+  CodeOutlined,
   PlusOutlined,
   SendOutlined,
   TableOutlined,
   TeamOutlined,
+  ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import {
   useMutation,
   useQuery,
+  useSubscription,
 } from '@apollo/client';
 import {
   closestCenter,
@@ -50,6 +55,9 @@ import TaskSearchFilter from '../components/TaskSearchFilter';
 import TaskStatusTabs from '../components/TaskStatusTabs';
 import TaskTable from '../components/TaskTable';
 import UpcomingTasksCard from '../components/UpcomingTasksCard';
+import ProgrammerTemplateModal from '../components/ProgrammerTemplateModal';
+import GitIntegrationModal from '../components/GitIntegrationModal';
+import LiveTeamActivityStream from '../components/LiveTeamActivityStream';
 import { useAuth } from '../contexts/AuthContext';
 import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import { useInfiniteTasks } from '../hooks/useInfiniteTasks';
@@ -68,6 +76,8 @@ import {
   TOGGLE_REACTION,
   UPDATE_TASK,
 } from '../lib/queries';
+import { TASK_EVENT_SUBSCRIPTION } from '../graphql/tasks';
+import { applyTaskEventToCache } from '../lib/taskCacheUpdates';
 import {
   Colleague,
   MetaDraft,
@@ -85,6 +95,9 @@ const { Title, Text } = Typography
 export default function Dashboard() {
   const { me } = useAuth()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+  const [isGitModalOpen, setIsGitModalOpen] = useState(false)
+  const [isActivityStreamOpen, setIsActivityStreamOpen] = useState(false)
   const [viewMode, setViewMode] = useLocalStorageState<'card' | 'table'>('task_view_mode', 'card')
   const [statusTab, setStatusTab] = useState<StatusTabKey>('all')
   const [assignmentTab, setAssignmentTab] = useState<'assignedToMe' | 'assignedToOthers' | 'all'>('assignedToMe')
@@ -108,7 +121,7 @@ export default function Dashboard() {
     [search, startDate, dueDate, projectId]
   )
 
-  const { tasks, loading, loadingMore, hasMore, loadMore } = useInfiniteTasks(null, taskFilters)
+  const { tasks, loading, loadingMore, hasMore, loadMore, refetch } = useInfiniteTasks(null, taskFilters)
   const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading)
 
   const { data: colleaguesData } = useQuery(GET_COLLEAGUES, { pollInterval: 30000 })
@@ -128,19 +141,44 @@ export default function Dashboard() {
 
   const [createTaskMutation, { loading: creating }] = useMutation(CREATE_TASK, {
     update(cache, { data }) {
-      const newTask = data.createTask
-      cache.modify({
-        fields: {
-          tasks(existing = { tasks: [], nextCursor: null, hasMore: false }) {
-            return { ...existing, tasks: [{ __ref: cache.identify(newTask) }, ...existing.tasks] }
-          },
-        },
-      })
+      if (data?.createTask) {
+        applyTaskEventToCache(cache, {
+          action: 'CREATED',
+          task: data.createTask,
+        })
+      }
     },
   })
 
-  const [updateTaskMutation] = useMutation(UPDATE_TASK)
-  const [deleteTaskMutation] = useMutation(DELETE_TASK)
+  const [deleteTaskMutation] = useMutation(DELETE_TASK, {
+    update(cache, _, { variables }) {
+      if (variables?.id) {
+        applyTaskEventToCache(cache, {
+          action: 'DELETED',
+          taskId: String(variables.id),
+        })
+      }
+    },
+  })
+
+  const [updateTaskMutation] = useMutation(UPDATE_TASK, {
+    update(cache, { data }) {
+      if (data?.updateTask) {
+        applyTaskEventToCache(cache, {
+          action: 'UPDATED',
+          task: data.updateTask,
+        })
+      }
+    },
+  })
+
+  useSubscription(TASK_EVENT_SUBSCRIPTION, {
+    variables: { divisiKode: me?.pegawai?.kodedivisi || undefined },
+    skip: !me,
+    onData: ({ client, data }) => {
+      applyTaskEventToCache(client.cache, data?.data?.taskEvent)
+    },
+  })
   const [addCommentMutation] = useMutation(ADD_COMMENT)
   const [toggleReactionMutation] = useMutation(TOGGLE_REACTION)
   const [setMetaMutation] = useMutation(SET_META)
@@ -177,50 +215,72 @@ export default function Dashboard() {
     }
   }
 
-  const handleUpdate = (id: string, input: { title?: string; description?: string | null; status?: TaskStatus }) => {
-    updateTaskMutation({
-      variables: { id, input },
-      optimisticResponse: {
-        updateTask: { __typename: 'Task', id, ...input, updatedAt: new Date().toISOString() },
-      },
-    }).catch((err) => message.error(err.message || 'Gagal memperbarui status'))
+
+
+  const handleUpdate = async (
+    id: string,
+    input: {
+      title?: string
+      description?: string | null
+      status?: TaskStatus
+      priority?: string
+      targetUserKode?: string
+      meta?: Array<{ key: string; value?: string | null; type: MetaDraft['type'] }>
+    }
+  ) => {
+    try {
+      await updateTaskMutation({
+        variables: { id, input },
+      })
+      message.success('Task berhasil diperbarui!')
+    } catch (err: any) {
+      message.error(err.message || 'Gagal memperbarui task')
+    }
   }
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteTaskMutation({
-        variables: { id },
-        update(cache) {
-          cache.evict({ id: cache.identify({ __typename: 'Task', id }) })
-          cache.gc()
-        },
-      })
+      await deleteTaskMutation({ variables: { id } })
+      message.success('Task berhasil dihapus!')
     } catch (err: any) {
       message.error(err.message || 'Gagal menghapus task')
     }
   }
 
-  const handleAddComment = async (taskId: string, content: string, parentId: string | null, attachments: any[]) => {
+  const handleAddComment = async (taskId: string, content: string, parentId?: string) => {
     try {
-      await addCommentMutation({ variables: { taskId, content, parentId, attachments } })
+      await addCommentMutation({ variables: { taskId, content, parentId } })
+      message.success('Komentar berhasil ditambahkan!')
     } catch (err: any) {
       message.error(err.message || 'Gagal menambahkan komentar')
     }
   }
 
-  const handleToggleReaction = (commentId: string, emoji: string) => {
-    toggleReactionMutation({ variables: { commentId, emoji } }).catch((err) =>
-      message.error(err.message || 'Gagal memberi reaksi')
-    )
+  const handleToggleReaction = async (commentId: string, emoji: string) => {
+    try {
+      await toggleReactionMutation({ variables: { commentId, emoji } })
+    } catch (err: any) {
+      message.error(err.message || 'Gagal menambahkan reaksi')
+    }
   }
 
   const handleSetMeta = async (taskId: string, key: string, value: string | null, type: MetaDraft['type']) => {
-    const { data } = await setMetaMutation({ variables: { taskId, key, value, type } })
-    return data.setTaskMeta
+    try {
+      const res = await setMetaMutation({ variables: { taskId, key, value, type } })
+      return res.data?.setTaskMeta
+    } catch (err: any) {
+      message.error(err.message || 'Gagal memperbarui info tambahan')
+      throw err
+    }
   }
 
   const handleDeleteMeta = async (id: string) => {
-    await deleteMetaMutation({ variables: { id } })
+    try {
+      await deleteMetaMutation({ variables: { id } })
+    } catch (err: any) {
+      message.error(err.message || 'Gagal menghapus info tambahan')
+      throw err
+    }
   }
 
   const handleReorderMeta = (taskId: string, orderedIds: string[]) => {
@@ -230,6 +290,10 @@ export default function Dashboard() {
   }
 
   const handleReassign = async (taskId: string, targetUserKode: string) => {
+    if (!isLeader) {
+      message.error('Hanya manager atau leader yang dapat mengubah penanggung jawab')
+      return
+    }
     try {
       await updateTaskMutation({
         variables: { id: taskId, input: { targetUserKode } },
@@ -327,7 +391,47 @@ export default function Dashboard() {
                 Perbarui status tugas, edit rincian, atau seret untuk mengubah urutan
               </Text>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Tooltip title="Quick Capture Task (Shortcut: Ctrl + K)">
+                <Button
+                  icon={<ThunderboltOutlined className="text-amber-500" />}
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-quick-capture'))}
+                  className="rounded-lg"
+                >
+                  Quick Task
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Muat template aktivitas harian divisi programmer">
+                <Button
+                  icon={<CodeOutlined className="text-blue-500" />}
+                  onClick={() => setIsTemplateModalOpen(true)}
+                  className="rounded-lg"
+                >
+                  Template Programmer
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Setup Git Hook & Webhook untuk divisi programmer">
+                <Button
+                  icon={<BranchesOutlined className="text-violet-500" />}
+                  onClick={() => setIsGitModalOpen(true)}
+                  className="rounded-lg"
+                >
+                  Integrasi Git
+                </Button>
+              </Tooltip>
+
+              {/* <Tooltip title="Pantau stream aktivitas langsung rekan satu divisi">
+                <Button
+                  icon={<TeamOutlined className="text-indigo-500" />}
+                  onClick={() => setIsActivityStreamOpen(true)}
+                  className="rounded-lg"
+                >
+                  Aktivitas Tim
+                </Button>
+              </Tooltip> */}
+
               <Segmented
                 value={viewMode}
                 onChange={(val) => setViewMode(val as 'card' | 'table')}
@@ -342,8 +446,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="mb-4">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4 items-start">
             <UpcomingTasksCard tasks={tasks} />
+            <LiveTeamActivityStream standalone />
           </div>
 
           <TaskSearchFilter
@@ -407,7 +512,7 @@ export default function Dashboard() {
                 onSetMeta={handleSetMeta}
                 onDeleteMeta={handleDeleteMeta}
                 onReorderMeta={handleReorderMeta}
-                onReassign={handleReassign}
+                onReassign={isLeader ? handleReassign : undefined}
                 members={colleagues}
                 onReorderTasks={(orderedIds) =>
                   reorderTasksMutation({ variables: { orderedIds } })
@@ -439,7 +544,7 @@ export default function Dashboard() {
                       onSetMeta={handleSetMeta}
                       onDeleteMeta={handleDeleteMeta}
                       onReorderMeta={handleReorderMeta}
-                      onReassign={handleReassign}
+                      onReassign={isLeader ? handleReassign : undefined}
                       members={colleagues}
                       readOnly={!canManageTask(task)}
                     />
@@ -472,7 +577,7 @@ export default function Dashboard() {
                               onSetMeta={handleSetMeta}
                               onDeleteMeta={handleDeleteMeta}
                               onReorderMeta={handleReorderMeta}
-                              onReassign={handleReassign}
+                              onReassign={isLeader ? handleReassign : undefined}
                               members={colleagues}
                               readOnly={!canManageTask(task)}
                             />
@@ -496,6 +601,22 @@ export default function Dashboard() {
         onCancel={() => setIsCreateModalOpen(false)}
         onCreate={handleCreate}
         loading={creating}
+      />
+
+
+      <ProgrammerTemplateModal
+        open={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+      />
+
+      <GitIntegrationModal
+        open={isGitModalOpen}
+        onClose={() => setIsGitModalOpen(false)}
+      />
+
+      <LiveTeamActivityStream
+        open={isActivityStreamOpen}
+        onClose={() => setIsActivityStreamOpen(false)}
       />
     </DefaultLayout>
   )

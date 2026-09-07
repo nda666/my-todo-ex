@@ -14,6 +14,7 @@ import {
 import { useQuery } from '@apollo/client';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
+import { useAuth } from '../contexts/AuthContext';
 import { GET_COLLEAGUES, GET_TASKS } from '../lib/queries';
 import {
     Colleague,
@@ -50,6 +51,8 @@ interface TaskEditModalProps {
 }
 
 export default function TaskEditModal({ open, task, assignees, onCancel, onSubmit, loading }: TaskEditModalProps) {
+    const { me } = useAuth()
+    const isLeader = me?.pegawai?.statusLeader === 1
     const [form] = Form.useForm<EditTaskFormValues>()
     const [metaItems, setMetaItems] = useState<MetaDraft[]>([])
 
@@ -118,14 +121,17 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
             type: item.type,
         }))
 
-        await onSubmit(task.id, {
+        const submitPayload: Parameters<typeof onSubmit>[1] = {
             title: values.title.trim(),
             description: values.description?.trim() || null,
             status: values.status,
-            priority: values.priority,
-            targetUserKode: values.targetUserKode || undefined,
             meta: formattedMeta,
-        })
+        }
+        if (isLeader && values.targetUserKode) {
+            submitPayload.targetUserKode = values.targetUserKode
+        }
+
+        await onSubmit(task.id, submitPayload)
     }
 
     return (
@@ -151,9 +157,14 @@ export default function TaskEditModal({ open, task, assignees, onCancel, onSubmi
                     <Input size="large" className="rounded-lg" />
                 </Form.Item>
 
-                <Form.Item name="targetUserKode" label="Penanggung Jawab / Assignee">
+                <Form.Item
+                    name="targetUserKode"
+                    label="Penanggung Jawab / Assignee"
+                    extra={!isLeader ? 'Hanya manager atau leader yang dapat mengubah penanggung jawab' : undefined}
+                >
                     <Select
                         placeholder="Pilih assignee..."
+                        disabled={!isLeader}
                         allowClear
                         showSearch
                         filterOption={(input, option) =>

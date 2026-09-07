@@ -1,6 +1,8 @@
 package task
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -9,11 +11,28 @@ import (
 	"golang-todo/internal/auth"
 	"golang-todo/internal/graph/helpers"
 	"golang-todo/internal/libs/cloudinaryup"
+	"golang-todo/internal/libs/pubsub"
 	"golang-todo/internal/models"
 	"golang-todo/internal/repository"
 
 	"github.com/graphql-go/graphql"
 )
+
+func publishTaskUpdated(ctx context.Context, repos *repository.Repositories, taskID uint, currentUserKode string) {
+	if fullTask, err := repos.Task.FindByID(ctx, taskID); err == nil && fullTask != nil {
+		divKode := 0
+		if fullTask.DivisiKode != nil {
+			divKode = *fullTask.DivisiKode
+		}
+		pubsub.DefaultBroker.Publish(&pubsub.TaskEvent{
+			Action:     pubsub.TaskUpdated,
+			Task:       helpers.FormatTask(*fullTask, currentUserKode),
+			TaskID:     strconv.FormatUint(uint64(fullTask.ID), 10),
+			DivisiKode: divKode,
+			UserKode:   fullTask.UserKode,
+		})
+	}
+}
 
 func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 	addCommentField := &graphql.Field{
@@ -88,6 +107,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				}
 			}
 
+			publishTaskUpdated(p.Context, repos, taskID, claims.Kodeku)
 			return helpers.FormatComment(*comment, claims.Kodeku), nil
 		},
 	}
@@ -204,7 +224,19 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				return helpers.FormatTask(*createdTask, claims.Kodeku), nil
+				formatted := helpers.FormatTask(*createdTask, claims.Kodeku)
+				divKode := 0
+				if createdTask.DivisiKode != nil {
+					divKode = *createdTask.DivisiKode
+				}
+				pubsub.DefaultBroker.Publish(&pubsub.TaskEvent{
+					Action:     pubsub.TaskCreated,
+					Task:       formatted,
+					TaskID:     strconv.FormatUint(uint64(createdTask.ID), 10),
+					DivisiKode: divKode,
+					UserKode:   createdTask.UserKode,
+				})
+				return formatted, nil
 			},
 		},
 
@@ -237,7 +269,17 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 
 				if targetUserVal, ok := input["targetUserKode"]; ok && targetUserVal != nil {
 					newTargetUserKode := targetUserVal.(string)
-					if isLeader || claims.Kodeku == tsk.CreatedBy || claims.Kodeku == tsk.UserKode {
+					if newTargetUserKode != tsk.UserKode {
+						if !isLeader {
+							return nil, fmt.Errorf("hanya manager atau leader yang dapat mengubah penanggung jawab")
+						}
+						targetKode, convErr := strconv.Atoi(newTargetUserKode)
+						if convErr != nil {
+							return nil, fmt.Errorf("penanggung jawab tidak valid")
+						}
+						if _, err := repos.Pegawai.FindByKode(p.Context, claims.ExternalToken, claims.KodeDivisi, targetKode); err != nil {
+							return nil, fmt.Errorf("penanggung jawab tidak ditemukan dalam divisi")
+						}
 						tsk.UserKode = newTargetUserKode
 					}
 				}
@@ -298,7 +340,19 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				return helpers.FormatTask(*updated, claims.Kodeku), nil
+				formatted := helpers.FormatTask(*updated, claims.Kodeku)
+				divKode := 0
+				if updated.DivisiKode != nil {
+					divKode = *updated.DivisiKode
+				}
+				pubsub.DefaultBroker.Publish(&pubsub.TaskEvent{
+					Action:     pubsub.TaskUpdated,
+					Task:       formatted,
+					TaskID:     strconv.FormatUint(uint64(updated.ID), 10),
+					DivisiKode: divKode,
+					UserKode:   updated.UserKode,
+				})
+				return formatted, nil
 			},
 		},
 
@@ -346,6 +400,14 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
+				if deleted {
+					pubsub.DefaultBroker.Publish(&pubsub.TaskEvent{
+						Action:     pubsub.TaskDeleted,
+						TaskID:     strconv.FormatUint(uint64(id), 10),
+						DivisiKode: claims.KodeDivisi,
+						UserKode:   claims.Kodeku,
+					})
+				}
 				return deleted, nil
 			},
 		},
@@ -389,6 +451,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
+				publishTaskUpdated(p.Context, repos, taskID, claims.Kodeku)
 				return helpers.FormatMeta(*meta), nil
 			},
 		},
@@ -407,9 +470,13 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
+				meta, _ := repos.Meta.FindByID(p.Context, id)
 				deleted, err := repos.Meta.Delete(p.Context, id, claims.Kodeku)
 				if err != nil {
 					return nil, err
+				}
+				if deleted && meta != nil {
+					publishTaskUpdated(p.Context, repos, meta.TaskID, claims.Kodeku)
 				}
 				return deleted, nil
 			},
@@ -445,6 +512,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err := repos.Meta.Reorder(p.Context, taskID, orderedIDs); err != nil {
 					return false, err
 				}
+				publishTaskUpdated(p.Context, repos, taskID, claims.Kodeku)
 				return true, nil
 			},
 		},
@@ -481,6 +549,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err := repos.Subtask.Create(p.Context, &subtask); err != nil {
 					return nil, err
 				}
+				publishTaskUpdated(p.Context, repos, taskID, claims.Kodeku)
 				return helpers.FormatSubtask(subtask), nil
 			},
 		},
@@ -521,6 +590,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 					return nil, err
 				}
 				_, _ = repos.Subtask.CheckAndUpdateParentTaskCompletion(p.Context, subtask.TaskID)
+				publishTaskUpdated(p.Context, repos, subtask.TaskID, claims.Kodeku)
 				return helpers.FormatSubtask(*subtask), nil
 			},
 		},
@@ -552,6 +622,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 					return false, err
 				}
 				_, _ = repos.Subtask.CheckAndUpdateParentTaskCompletion(p.Context, subtask.TaskID)
+				publishTaskUpdated(p.Context, repos, subtask.TaskID, claims.Kodeku)
 				return true, nil
 			},
 		},
@@ -588,6 +659,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if _, err := repos.Subtask.Reorder(p.Context, taskID, orderedIDs); err != nil {
 					return false, err
 				}
+				publishTaskUpdated(p.Context, repos, taskID, claims.Kodeku)
 				return true, nil
 			},
 		},
@@ -620,6 +692,7 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
+				publishTaskUpdated(p.Context, repos, updated.TaskID, claims.Kodeku)
 				return helpers.FormatComment(*updated, claims.Kodeku), nil
 			},
 		},
@@ -638,9 +711,13 @@ func MutationFields(repos *repository.Repositories, t *Types) graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
+				comm, _ := repos.Comment.FindByID(p.Context, id)
 				deleted, err := repos.Comment.Delete(p.Context, id, claims.Kodeku)
 				if err != nil {
 					return nil, err
+				}
+				if deleted && comm != nil {
+					publishTaskUpdated(p.Context, repos, comm.TaskID, claims.Kodeku)
 				}
 				return deleted, nil
 			},

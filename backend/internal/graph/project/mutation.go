@@ -206,5 +206,168 @@ func MutationFields(repos *repository.Repositories, projectPolicy *auth.ProjectP
 				return true, nil
 			},
 		},
+
+		"createProjectWorkflowStep": &graphql.Field{
+			Type: t.ProjectWorkflowStepType,
+			Args: graphql.FieldConfigArgument{
+				"input": &graphql.ArgumentConfig{Type: graphql.NewNonNull(t.CreateProjectWorkflowStepInputType)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				claims, err := auth.RequireUser(p.Context)
+				if err != nil {
+					return nil, err
+				}
+				input := p.Args["input"].(map[string]interface{})
+				projectID, err := helpers.ParseID(input["projectId"])
+				if err != nil {
+					return nil, err
+				}
+				var parentID *uint
+				if rawParent, ok := input["parentId"]; ok && rawParent != nil {
+					if pid, err := helpers.ParseID(rawParent); err == nil && pid > 0 {
+						parentID = &pid
+					}
+				}
+				title := input["title"].(string)
+				desc := helpers.StrVal(input["description"])
+
+				var divisiKode *int
+				if dk, ok := input["divisiKode"].(int); ok {
+					divisiKode = &dk
+				}
+
+				status := models.WorkflowStepStatusPending
+				if stRaw, ok := input["status"]; ok && stRaw != nil {
+					switch st := stRaw.(type) {
+					case models.WorkflowStepStatus:
+						if st != "" {
+							status = st
+						}
+					case string:
+						if st != "" {
+							status = models.WorkflowStepStatus(st)
+						}
+					}
+				}
+
+				step := &models.ProjectWorkflowStep{
+					ProjectID:   projectID,
+					ParentID:    parentID,
+					Title:       title,
+					Description: desc,
+					DivisiKode:  divisiKode,
+					Status:      status,
+					CreatedBy:   claims.Kodeku,
+				}
+
+				if err := repos.Project.CreateWorkflowStep(p.Context, step); err != nil {
+					return nil, err
+				}
+
+				return helpers.FormatProjectWorkflowStep(*step), nil
+			},
+		},
+
+		"updateProjectWorkflowStep": &graphql.Field{
+			Type: t.ProjectWorkflowStepType,
+			Args: graphql.FieldConfigArgument{
+				"id":    &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+				"input": &graphql.ArgumentConfig{Type: graphql.NewNonNull(t.UpdateProjectWorkflowStepInputType)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				if _, err := auth.RequireUser(p.Context); err != nil {
+					return nil, err
+				}
+				stepID, err := helpers.ParseID(p.Args["id"])
+				if err != nil {
+					return nil, err
+				}
+				input := p.Args["input"].(map[string]interface{})
+				updates := make(map[string]interface{})
+				if title, ok := input["title"].(string); ok && title != "" {
+					updates["title"] = title
+				}
+				if desc, ok := input["description"].(string); ok {
+					updates["description"] = desc
+				}
+				if dk, ok := input["divisiKode"].(int); ok {
+					updates["divisi_kode"] = dk
+				}
+				if stRaw, ok := input["status"]; ok && stRaw != nil {
+					switch st := stRaw.(type) {
+					case models.WorkflowStepStatus:
+						if st != "" {
+							updates["status"] = st
+						}
+					case string:
+						if st != "" {
+							updates["status"] = models.WorkflowStepStatus(st)
+						}
+					}
+				}
+
+				updated, err := repos.Project.UpdateWorkflowStep(p.Context, stepID, updates)
+				if err != nil {
+					return nil, err
+				}
+				return helpers.FormatProjectWorkflowStep(*updated), nil
+			},
+		},
+
+		"deleteProjectWorkflowStep": &graphql.Field{
+			Type: graphql.Boolean,
+			Args: graphql.FieldConfigArgument{
+				"id": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				if _, err := auth.RequireUser(p.Context); err != nil {
+					return false, err
+				}
+				stepID, err := helpers.ParseID(p.Args["id"])
+				if err != nil {
+					return false, err
+				}
+				if err := repos.Project.DeleteWorkflowStep(p.Context, stepID); err != nil {
+					return false, err
+				}
+				return true, nil
+			},
+		},
+
+		"reorderProjectWorkflowSteps": &graphql.Field{
+			Type: graphql.Boolean,
+			Args: graphql.FieldConfigArgument{
+				"projectId":  &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.ID)},
+				"parentId":   &graphql.ArgumentConfig{Type: graphql.ID},
+				"orderedIds": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(graphql.ID)))},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				if _, err := auth.RequireUser(p.Context); err != nil {
+					return false, err
+				}
+				projectID, err := helpers.ParseID(p.Args["projectId"])
+				if err != nil {
+					return false, err
+				}
+				var parentID *uint
+				if rawParent, ok := p.Args["parentId"]; ok && rawParent != nil {
+					if pid, err := helpers.ParseID(rawParent); err == nil && pid > 0 {
+						parentID = &pid
+					}
+				}
+				var orderedIDs []uint
+				if list, ok := p.Args["orderedIds"].([]interface{}); ok {
+					for _, item := range list {
+						if id, err := helpers.ParseID(item); err == nil {
+							orderedIDs = append(orderedIDs, id)
+						}
+					}
+				}
+				if err := repos.Project.ReorderWorkflowSteps(p.Context, projectID, parentID, orderedIDs); err != nil {
+					return false, err
+				}
+				return true, nil
+			},
+		},
 	}
 }

@@ -35,6 +35,9 @@ export const TASK_FIELDS = gql`
     createdBy
     createdAt
     updatedAt
+    startDate
+    dueDate
+    completedAt
     meta {
       id
       key

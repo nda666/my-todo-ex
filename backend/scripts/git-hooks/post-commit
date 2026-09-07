@@ -1,0 +1,77 @@
+#!/bin/sh
+# Git Hook: post-commit
+# Script ini otomatis mencatat commit terbaru menjadi task di Aplikasi Todo.
+#
+# CARA PEMASANGAN:
+# 1. Salin file ini ke folder .git/hooks/post-commit di repositori git lokal Anda
+# 2. Berikan izin eksekusi: chmod +x .git/hooks/post-commit
+
+TODO_SERVER_URL="${TODO_SERVER_URL:-http://localhost:8080}"
+TODO_API_TOKEN="${TODO_API_TOKEN:-MASUKKAN_TOKEN_ANDA}"
+
+# Jika token belum diset, lewati
+if [ -z "$TODO_API_TOKEN" ] || [ "$TODO_API_TOKEN" = "MASUKKAN_TOKEN_ANDA" ]; then
+  exit 0
+fi
+
+# Dapatkan informasi git terkini
+COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null)
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+HASH=$(git rev-parse --short HEAD 2>/dev/null)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+REPO_NAME=$(basename "$REPO_ROOT" 2>/dev/null)
+AUTHOR_NAME=$(git log -1 --pretty=%an 2>/dev/null)
+
+if [ -z "$COMMIT_MSG" ]; then
+  exit 0
+fi
+
+FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
+
+echo ""
+echo "[Todo App] Mengirim commit ke Todo Server ($TODO_SERVER_URL)..."
+echo "[Todo App] Commit: $HASH ($BRANCH) - $FIRST_LINE"
+
+# Bangun JSON payload yang aman tanpa heredoc untuk kompatibilitas POSIX/Dash/Bash
+if command -v jq >/dev/null 2>&1; then
+  PAYLOAD=$(jq -n \
+    --arg msg "$COMMIT_MSG" \
+    --arg branch "$BRANCH" \
+    --arg hash "$HASH" \
+    --arg repo "$REPO_NAME" \
+    --arg name "$AUTHOR_NAME" \
+    '{commit_message: $msg, branch: $branch, commit_hash: $hash, repo: $repo, author_name: $name}')
+else
+  CLEAN_MSG=$(printf '%s' "$FIRST_LINE" | tr '"\\' '  ')
+  PAYLOAD="{\"commit_message\":\"$CLEAN_MSG\",\"branch\":\"$BRANCH\",\"commit_hash\":\"$HASH\",\"repo\":\"$REPO_NAME\",\"author_name\":\"$AUTHOR_NAME\"}"
+fi
+
+# Kirim payload ke webhook dan tangkap response beserta status HTTP
+RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" --max-time 5 -X POST "$TODO_SERVER_URL/api/webhooks/git" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TODO_API_TOKEN" \
+  -H "X-Git-Token: $TODO_API_TOKEN" \
+  -d "$PAYLOAD" 2>&1)
+
+CURL_EXIT=$?
+HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
+BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS:/d')
+
+if [ $CURL_EXIT -ne 0 ]; then
+  echo "[Todo App] Gagal terhubung ke server ($TODO_SERVER_URL): curl error $CURL_EXIT"
+elif [ "$HTTP_STATUS" = "200" ]; then
+  echo "[Todo App] Berhasil dicatat ke Todo App!"
+  if command -v jq >/dev/null 2>&1; then
+    TASK_INFO=$(echo "$BODY" | jq -r '.tasks[0] | "Task #\(.id): \(.title) [\(.status)]"' 2>/dev/null)
+    if [ -n "$TASK_INFO" ] && [ "$TASK_INFO" != "null" ]; then
+      echo "[Todo App] $TASK_INFO"
+    else
+      echo "[Todo App] Response: $BODY"
+    fi
+  else
+    echo "[Todo App] Response: $BODY"
+  fi
+else
+  echo "[Todo App] Gagal mencatat task (HTTP $HTTP_STATUS): $BODY"
+fi
+echo ""

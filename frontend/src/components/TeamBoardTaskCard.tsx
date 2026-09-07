@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 
 import { STATUS_OPTIONS } from '../constants/taskStatus';
+import { useAuth } from '../contexts/AuthContext';
 import { CloudinaryUploadResult } from '../lib/cloudinary';
 import {
     Colleague,
@@ -48,6 +49,8 @@ interface TeamBoardTaskCardProps {
 export default function TeamBoardTaskCard({
     task, editable, members, onUpdate, onDelete, onAddComment, onToggleReaction, onSetMeta, onDeleteMeta, onReorderMeta,
 }: TeamBoardTaskCardProps) {
+    const { me } = useAuth()
+    const isLeader = me?.pegawai?.statusLeader === 1
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isDetailOpen, setIsDetailOpen] = useState(false)
     const [updating, setUpdating] = useState(false)
@@ -181,9 +184,9 @@ export default function TeamBoardTaskCard({
                 onClose={() => setIsDetailOpen(false)}
                 readOnly={!editable}
                 members={members}
-                onReassign={async (taskId, targetUserKode) => {
+                onReassign={isLeader ? async (taskId, targetUserKode) => {
                     await onUpdate(taskId, { targetUserKode })
-                }}
+                } : undefined}
                 onAddComment={onAddComment}
                 onToggleReaction={onToggleReaction}
             />

@@ -7,7 +7,11 @@ import {
   from,
   HttpLink,
   InMemoryCache,
+  split,
 } from "@apollo/client";
+import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
+import { getMainDefinition } from "@apollo/client/utilities";
+import { createClient } from "graphql-ws";
 import { onError } from "@apollo/client/link/error";
 
 import { clearToken, getToken } from "./auth";
@@ -109,6 +113,40 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
   }
 });
 
+const getWsUrl = () => {
+  if (typeof window === "undefined") return "ws://localhost:8080/subscriptions";
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/subscriptions`;
+};
+
+const wsLink = new GraphQLWsLink(
+  createClient({
+    url: getWsUrl,
+    connectionParams: () => {
+      const token = getToken();
+      return {
+        authorization: token ? `Bearer ${token}` : "",
+      };
+    },
+    lazy: true,
+    retryAttempts: 10,
+  })
+);
+
+const httpLinkChain = from([errorLink, authLink, httpLink]);
+
+const splitLink = split(
+  ({ query }) => {
+    const definition = getMainDefinition(query);
+    return (
+      definition.kind === "OperationDefinition" &&
+      definition.operation === "subscription"
+    );
+  },
+  wsLink,
+  httpLinkChain
+);
+
 // Cache dikonfigurasi dengan normalisasi per-entity (id-based) supaya hasil mutation
 // otomatis "nempel" ke semua query yang sedang menampilkan entity yang sama - ini yang
 // menghilangkan kebutuhan refetch manual/full-page-reload tiap kali ada perubahan.
@@ -142,14 +180,14 @@ export const cache = new InMemoryCache({
 });
 
 export const apolloClient = new ApolloClient({
-  link: from([errorLink, authLink, httpLink]),
+  link: splitLink,
   cache,
   defaultOptions: {
     watchQuery: { fetchPolicy: "cache-and-network" }, // tampilkan cache dulu (instan), lalu update diam-diam di background
     query: { fetchPolicy: "cache-first" },
   },
   devtools: {
-    enabled: import.meta.env.DEV,
+    enabled: Boolean((import.meta as any).env?.DEV),
   },
 });
 

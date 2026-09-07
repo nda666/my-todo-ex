@@ -1,5 +1,5 @@
 import { gql } from "@apollo/client";
-import { PROJECT_FIELDS } from "./fragments";
+import { PROJECT_FIELDS, WORKFLOW_STEP_FIELDS } from "./fragments";
 
 export const CREATE_PROJECT = gql`
   ${PROJECT_FIELDS}
@@ -136,5 +136,35 @@ export const REASSIGN_PROJECT_TASK = gql`
       id
       userKode
     }
+  }
+`;
+
+export const CREATE_WORKFLOW_STEP = gql`
+  ${WORKFLOW_STEP_FIELDS}
+  mutation CreateProjectWorkflowStep($input: CreateProjectWorkflowStepInput!) {
+    createProjectWorkflowStep(input: $input) {
+      ...WorkflowStepFields
+    }
+  }
+`;
+
+export const UPDATE_WORKFLOW_STEP = gql`
+  ${WORKFLOW_STEP_FIELDS}
+  mutation UpdateProjectWorkflowStep($id: ID!, $input: UpdateProjectWorkflowStepInput!) {
+    updateProjectWorkflowStep(id: $id, input: $input) {
+      ...WorkflowStepFields
+    }
+  }
+`;
+
+export const DELETE_WORKFLOW_STEP = gql`
+  mutation DeleteProjectWorkflowStep($id: ID!) {
+    deleteProjectWorkflowStep(id: $id)
+  }
+`;
+
+export const REORDER_WORKFLOW_STEPS = gql`
+  mutation ReorderProjectWorkflowSteps($projectId: ID!, $parentId: ID, $orderedIds: [ID!]!) {
+    reorderProjectWorkflowSteps(projectId: $projectId, parentId: $parentId, orderedIds: $orderedIds)
   }
 `;

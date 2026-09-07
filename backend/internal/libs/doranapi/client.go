@@ -71,7 +71,7 @@ func (c *Client) Login(ctx context.Context, username, password string) (*LoginRe
 		if msg == "" {
 			msg = "login gagal"
 		}
-		return nil, fmt.Errorf(msg)
+		return nil, fmt.Errorf("%s", msg)
 	}
 	return &result, nil
 }

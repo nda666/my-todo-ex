@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button, Collapse, Empty, message, Spin } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 
-import { useMutation } from '@apollo/client';
+import { useMutation, useSubscription } from '@apollo/client';
 import {
     closestCenter,
     DndContext,
@@ -35,6 +35,8 @@ import {
     UPDATE_TASK,
 } from '../lib/queries';
 import { Colleague, Task } from '../types/task';
+import { TASK_EVENT_SUBSCRIPTION } from '../graphql/tasks';
+import { applyTaskEventToCache } from '../lib/taskCacheUpdates';
 import DragTaskPreview from './DragTaskPreview';
 import SortableTeamBoardTaskCard from './SortableTeamBoardTaskCard';
 
@@ -49,10 +51,16 @@ export default function TeamBoardColumn({
     members?: Colleague[];
     onQuickAssign?: (userKode: string) => void;
 }) {
-    const { tasks, loading, loadingMore, hasMore, loadMore } = useInfiniteTasks(userKode)
+    const { tasks, loading, loadingMore, hasMore, loadMore, refetch } = useInfiniteTasks(userKode)
     const sentinelRef = useInfiniteScrollSentinel(loadMore, hasMore && !loading)
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
     const [draggingTask, setDraggingTask] = useState<Task | null>(null)
+
+    useSubscription(TASK_EVENT_SUBSCRIPTION, {
+        onData: ({ client, data }) => {
+            applyTaskEventToCache(client.cache, data?.data?.taskEvent)
+        },
+    })
 
     const [updateTaskMutation] = useMutation(UPDATE_TASK)
     const [deleteTaskMutation] = useMutation(DELETE_TASK)

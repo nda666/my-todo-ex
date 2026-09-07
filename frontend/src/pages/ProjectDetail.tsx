@@ -33,6 +33,7 @@ import {
 
 import {
     AppstoreOutlined,
+    BranchesOutlined,
     CalendarOutlined,
     CheckCircleOutlined,
     ClockCircleOutlined,
@@ -78,6 +79,7 @@ import ProjectActivityTrail from '../components/ProjectActivityTrail';
 import ProjectFilesView from '../components/ProjectFilesView';
 import ProjectProgressCard from '../components/ProjectProgressCard';
 import ProjectTimelineView from '../components/ProjectTimelineView';
+import ProjectWorkflowView from '../components/ProjectWorkflowView';
 import SortableTaskCard from '../components/SortableTaskCard';
 import TaskAssigneePieChart from '../components/TaskAssigneePieChart';
 import TaskTable from '../components/TaskTable';
@@ -124,7 +126,7 @@ export default function ProjectDetail() {
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
     const [divisionMembers, setDivisionMembers] = useState<Record<number, Colleague[]>>({});
-    const [viewMode, setViewMode] = useState<'card' | 'table' | 'timeline' | 'activity' | 'files'>('card');
+    const [viewMode, setViewMode] = useState<'workflow' | 'card' | 'table' | 'timeline' | 'activity' | 'files'>('workflow');
     const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
     const [inviteTarget, setInviteTarget] = useState<number | null>(null);
     const [downloadingReport, setDownloadingReport] = useState(false);
@@ -762,6 +764,7 @@ export default function ProjectDetail() {
                         value={viewMode}
                         onChange={(v) => setViewMode(v as any)}
                         options={[
+                            { label: 'Workflow', value: 'workflow', icon: <BranchesOutlined /> },
                             { label: 'Card', value: 'card', icon: <AppstoreOutlined /> },
                             { label: 'Table', value: 'table', icon: <TableOutlined /> },
                             { label: 'Gantt / Timeline', value: 'timeline', icon: <CalendarOutlined /> },
@@ -807,7 +810,14 @@ export default function ProjectDetail() {
             </div>
 
             {/* --- View Mode Content --- */}
-            {viewMode === 'activity' ? (
+            {viewMode === 'workflow' ? (
+                <ProjectWorkflowView
+                    projectId={project.id}
+                    steps={project.workflowSteps || []}
+                    divisions={project.divisions || []}
+                    onRefresh={() => refetchProject()}
+                />
+            ) : viewMode === 'activity' ? (
                 <ProjectActivityTrail stageHistory={project.stageHistory} />
             ) : viewMode === 'files' ? (
                 <ProjectFilesView files={projectFiles} />

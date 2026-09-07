@@ -18,6 +18,7 @@ type Types struct {
 	TaskCommentType            *graphql.Object
 	TaskType                   *graphql.Object
 	TaskConnectionType         *graphql.Object
+	TaskEventPayloadType       *graphql.Object
 	CreateTaskInput            *graphql.InputObject
 	UpdateTaskInput            *graphql.InputObject
 	CreateSubtaskInput         *graphql.InputObject
@@ -237,6 +238,15 @@ func BuildTypes() *Types {
 		},
 	})
 
+	taskEventPayloadType := graphql.NewObject(graphql.ObjectConfig{
+		Name: "TaskEventPayload",
+		Fields: graphql.Fields{
+			"action": &graphql.Field{Type: graphql.NewNonNull(graphql.String)},
+			"task":   &graphql.Field{Type: taskType},
+			"taskId": &graphql.Field{Type: graphql.ID},
+		},
+	})
+
 	return &Types{
 		TaskStatusEnum:             taskStatusEnum,
 		TaskPriorityEnum:           taskPriorityEnum,
@@ -249,6 +259,7 @@ func BuildTypes() *Types {
 		TaskCommentType:            taskCommentType,
 		TaskType:                   taskType,
 		TaskConnectionType:         taskConnectionType,
+		TaskEventPayloadType:       taskEventPayloadType,
 		CreateTaskInput:            createTaskInput,
 		UpdateTaskInput:            updateTaskInput,
 		CreateSubtaskInput:         createSubtaskInput,

@@ -29,6 +29,12 @@ type ProjectRepository interface {
 	GetDivisionProgress(ctx context.Context, projectID uint) ([]models.DivisionProgress, error)
 	CountIncompleteTasks(ctx context.Context, projectID uint) (int64, error)
 	DetachTask(ctx context.Context, projectID uint, taskID uint) error
+
+	GetWorkflowSteps(ctx context.Context, projectID uint) ([]models.ProjectWorkflowStep, error)
+	CreateWorkflowStep(ctx context.Context, step *models.ProjectWorkflowStep) error
+	UpdateWorkflowStep(ctx context.Context, stepID uint, updates map[string]interface{}) (*models.ProjectWorkflowStep, error)
+	DeleteWorkflowStep(ctx context.Context, stepID uint) error
+	ReorderWorkflowSteps(ctx context.Context, projectID uint, parentID *uint, orderedIDs []uint) error
 }
 
 type projectRepository struct {
@@ -61,6 +67,8 @@ func (r *projectRepository) FindByID(ctx context.Context, id uint) (*models.Proj
 	if err != nil {
 		return nil, err
 	}
+	workflowSteps, _ := r.GetWorkflowSteps(ctx, id)
+	p.WorkflowSteps = workflowSteps
 	return &p, nil
 }
 
@@ -349,3 +357,103 @@ func (r *projectRepository) DetachTask(ctx context.Context, projectID uint, task
 		Where("project_id = ? AND task_id = ?", projectID, taskID).
 		Delete(&models.ProjectTask{}).Error
 }
+
+func (r *projectRepository) GetWorkflowSteps(ctx context.Context, projectID uint) ([]models.ProjectWorkflowStep, error) {
+	var allSteps []models.ProjectWorkflowStep
+	err := r.db.WithContext(ctx).
+		Where("project_id = ?", projectID).
+		Order("sort_order ASC, id ASC").
+		Find(&allSteps).Error
+	if err != nil {
+		return nil, err
+	}
+
+	type node struct {
+		step     models.ProjectWorkflowStep
+		children []*node
+	}
+
+	nodes := make(map[uint]*node)
+	for _, s := range allSteps {
+		nodes[s.ID] = &node{step: s, children: []*node{}}
+	}
+
+	var rootNodes []*node
+	for _, s := range allSteps {
+		n := nodes[s.ID]
+		if s.ParentID != nil && *s.ParentID > 0 {
+			if parent, ok := nodes[*s.ParentID]; ok {
+				parent.children = append(parent.children, n)
+			} else {
+				rootNodes = append(rootNodes, n)
+			}
+		} else {
+			rootNodes = append(rootNodes, n)
+		}
+	}
+
+	var buildTree func(n *node) models.ProjectWorkflowStep
+	buildTree = func(n *node) models.ProjectWorkflowStep {
+		s := n.step
+		s.Children = make([]models.ProjectWorkflowStep, 0, len(n.children))
+		for _, childNode := range n.children {
+			s.Children = append(s.Children, buildTree(childNode))
+		}
+		return s
+	}
+
+	result := make([]models.ProjectWorkflowStep, 0, len(rootNodes))
+	for _, n := range rootNodes {
+		result = append(result, buildTree(n))
+	}
+	return result, nil
+}
+
+func (r *projectRepository) CreateWorkflowStep(ctx context.Context, step *models.ProjectWorkflowStep) error {
+	if step.Status == "" {
+		step.Status = models.WorkflowStepStatusPending
+	}
+	return r.db.WithContext(ctx).Create(step).Error
+}
+
+func (r *projectRepository) UpdateWorkflowStep(ctx context.Context, stepID uint, updates map[string]interface{}) (*models.ProjectWorkflowStep, error) {
+	var step models.ProjectWorkflowStep
+	if err := r.db.WithContext(ctx).First(&step, stepID).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.WithContext(ctx).Model(&step).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+
+	return &step, nil
+}
+
+func (r *projectRepository) DeleteWorkflowStep(ctx context.Context, stepID uint) error {
+	var childIDs []uint
+	r.db.WithContext(ctx).Table("xv_project_workflow_step").Where("parent_id = ?", stepID).Pluck("id", &childIDs)
+	for _, childID := range childIDs {
+		if err := r.DeleteWorkflowStep(ctx, childID); err != nil {
+			return err
+		}
+	}
+	return r.db.WithContext(ctx).Delete(&models.ProjectWorkflowStep{}, stepID).Error
+}
+
+func (r *projectRepository) ReorderWorkflowSteps(ctx context.Context, projectID uint, parentID *uint, orderedIDs []uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for idx, id := range orderedIDs {
+			q := tx.Model(&models.ProjectWorkflowStep{}).Where("id = ? AND project_id = ?", id, projectID)
+			if parentID != nil && *parentID > 0 {
+				q = q.Where("parent_id = ?", *parentID)
+			} else {
+				q = q.Where("parent_id IS NULL OR parent_id = 0")
+			}
+			if err := q.Update("sort_order", idx).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+

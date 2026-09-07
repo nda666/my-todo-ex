@@ -12,6 +12,7 @@ import (
 type MetaRepository interface {
 	Create(ctx context.Context, meta *models.TaskMeta) error
 	Upsert(ctx context.Context, taskID uint, key string, value string, metaType models.MetaType) (*models.TaskMeta, error)
+	FindByID(ctx context.Context, id uint) (*models.TaskMeta, error)
 	Delete(ctx context.Context, id uint, kodeku string) (bool, error) // hanya boleh kalau task-nya milik/dibuat oleh kodeku
 	DeleteAllForTask(ctx context.Context, taskID uint) error
 	Reorder(ctx context.Context, taskID uint, orderedIDs []uint) error
@@ -45,6 +46,14 @@ func (r *metaRepository) Upsert(ctx context.Context, taskID uint, key string, va
 	meta.Value = value
 	meta.Type = metaType
 	if err := r.db.WithContext(ctx).Save(&meta).Error; err != nil {
+		return nil, err
+	}
+	return &meta, nil
+}
+
+func (r *metaRepository) FindByID(ctx context.Context, id uint) (*models.TaskMeta, error) {
+	var meta models.TaskMeta
+	if err := r.db.WithContext(ctx).First(&meta, id).Error; err != nil {
 		return nil, err
 	}
 	return &meta, nil

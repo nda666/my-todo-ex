@@ -17,6 +17,7 @@ import (
 	"golang-todo/internal/libs/cache"
 	"golang-todo/internal/libs/doranapi"
 	"golang-todo/internal/repository"
+	"golang-todo/internal/ws"
 
 	"github.com/graphql-go/handler"
 	"github.com/rs/cors"
@@ -66,12 +67,15 @@ func main() {
 	http.Handle("/api/upload-avatar", authMiddleware(authService, httpapi.UploadAvatarHandler(repos)))
 	http.Handle("/api/reports/team-summary", authMiddleware(authService, httpapi.GenerateReportHandler(repos, aiClient, agenticClient)))
 	http.Handle("/api/reports/project-summary", authMiddleware(authService, httpapi.GenerateProjectReportHandler(repos, agenticClient)))
+	http.Handle("/api/webhooks/git", authMiddleware(authService, httpapi.GitWebhookHandler(repos, authService)))
+	http.Handle("/api/webhook-tokens", authMiddleware(authService, httpapi.WebhookTokenHandler(repos)))
 	http.Handle("/query", authMiddleware(authService, h))
+	http.Handle("/subscriptions", ws.NewHandler(&schema.Schema, authService))
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "http://127.0.0.1:5173"},
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Git-Token"},
 		AllowCredentials: true,
 	})
 

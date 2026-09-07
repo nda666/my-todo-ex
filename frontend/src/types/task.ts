@@ -100,6 +100,10 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   sortOrder: number;
+  startDate?: string | null;
+  dueDate?: string | null;
+  completedAt?: string | null;
+  projectId?: string | null;
   comments: TaskComment[];
   meta: TaskMeta[];
   subtasks?: Subtask[];
