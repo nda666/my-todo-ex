@@ -66,10 +66,14 @@ export default function GitIntegrationModal({
   onTaskCreated,
 }: GitIntegrationModalProps) {
   const jwtToken = getToken() || '';
+  const isLocalDev =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
   const serverUrl =
     (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') ||
     (typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:8080`
+      ? (isLocalDev ? `${window.location.protocol}//${window.location.hostname}:8080` : window.location.origin)
       : 'http://localhost:8080');
   const webhookUrl = `${serverUrl}/api/webhooks/git`;
 
