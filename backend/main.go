@@ -75,7 +75,7 @@ func main() {
 	http.Handle("/subscriptions", ws.NewHandler(&schema.Schema, authService))
 
 	// Sajikan static frontend build jika direktori dist tersedia (Single Container All-in-One)
-	distDir := "./dist"
+	distDir := "./frontend/dist"
 	if fi, err := os.Stat(distDir); err == nil && fi.IsDir() {
 		fs := http.FileServer(http.Dir(distDir))
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
