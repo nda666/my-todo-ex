@@ -131,6 +131,16 @@ func main() {
 
 	port := cfg.ServerPort
 	log.Printf("server running on http://localhost:%s/query", port)
+
+	// Jika port yang dikonfigurasi bukan 8000, buka juga listener di port 8000
+	// agar health check bawaan Koyeb (port 8000) selalu lolos
+	if port != "8000" {
+		go func() {
+			log.Printf("listener cadangan untuk health check koyeb aktif di :8000")
+			_ = http.ListenAndServe(":8000", c.Handler(http.DefaultServeMux))
+		}()
+	}
+
 	log.Fatal(http.ListenAndServe(":"+port, c.Handler(http.DefaultServeMux)))
 }
 

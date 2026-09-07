@@ -2,6 +2,9 @@ package database
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"time"
 
 	"golang-todo/internal/config"
 	"golang-todo/internal/models"
@@ -12,8 +15,18 @@ import (
 )
 
 func Connect(cfg *config.Config) (*gorm.DB, error) {
+	customLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             2 * time.Second,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  false,
+		},
+	)
+
 	db, err := gorm.Open(mysql.Open(cfg.DSN()), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
+		Logger: customLogger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("connect database: %w", err)
