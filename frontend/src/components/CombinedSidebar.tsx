@@ -41,6 +41,7 @@ interface CombinedSidebarProps {
   onNavigate?: () => void;
 }
 
+
 export default function CombinedSidebar({
   me,
   isLeader = false,
@@ -202,13 +203,12 @@ export default function CombinedSidebar({
                   <button
                     onClick={() => handleTabClick(t.key)}
                     onMouseEnter={() => handleTabHover(t.key)}
-                    className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer relative ${
-                      isActive
+                    className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer relative ${isActive
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-bold'
                         : isCurrent
-                        ? 'bg-slate-800 text-blue-400 font-semibold border border-blue-500/30'
-                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
-                    }`}
+                          ? 'bg-slate-800 text-blue-400 font-semibold border border-blue-500/30'
+                          : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                      }`}
                   >
                     <span className="text-xl">{t.icon}</span>
                     <span className="text-xs font-medium mt-0.5 leading-none">{t.label}</span>
@@ -271,15 +271,13 @@ export default function CombinedSidebar({
 
       {/* 2. SECONDARY SUBMENU PANEL (224px wide) */}
       <div
-        className={`w-56 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-screen overflow-y-auto flex flex-col justify-between p-3.5 transition-all duration-200 ${
-          collapsed
-            ? `absolute left-16 top-0 z-50 shadow-2xl shadow-slate-900/30 dark:shadow-black/70 ${
-                isHovered
-                  ? 'opacity-100 visible pointer-events-auto translate-x-0'
-                  : 'opacity-0 invisible pointer-events-none -translate-x-2'
-              }`
+        className={`w-56 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-screen overflow-y-auto flex flex-col justify-between p-3.5 transition-all duration-200 ${collapsed
+            ? `absolute left-16 top-0 z-50 shadow-2xl shadow-slate-900/30 dark:shadow-black/70 ${isHovered
+              ? 'opacity-100 visible pointer-events-auto translate-x-0'
+              : 'opacity-0 invisible pointer-events-none -translate-x-2'
+            }`
             : 'relative shrink-0 shadow-sm opacity-100 visible'
-        }`}
+          }`}
       >
         <div className="flex flex-col gap-4">
           {/* Header section based on tab */}

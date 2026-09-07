@@ -10,6 +10,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Radio,
   Segmented,
   Select,
   Space,
@@ -93,6 +94,7 @@ export default function GitIntegrationModal({
   const [testBranch, setTestBranch] = useState('main');
   const [testing, setTesting] = useState(false);
   const [selectedOS, setSelectedOS] = useState<'linux' | 'windows'>('linux');
+  const [hookEvent, setHookEvent] = useState<'pre-push' | 'post-commit'>('pre-push');
 
   const fetchTokens = async () => {
     if (!open) return;
@@ -184,6 +186,87 @@ export default function GitIntegrationModal({
   };
 
   const activeToken = selectedToken || (tokens.length > 0 ? tokens[0].token : 'MASUKKAN_TOKEN_WEBHOOK_ANDA');
+  const hookFileName = hookEvent;
+
+  const prePushScript = `#!/bin/sh
+# .git/hooks/pre-push
+# Otomatis mencatat commit ke Todo App saat 'git push' (status langsung COMPLETED)
+# Mendukung multiple commit sekaligus dan aman dari cancel commit (amend/reset)
+TODO_SERVER_URL="${serverUrl}"
+TODO_API_TOKEN="${activeToken}"
+
+z40="0000000000000000000000000000000000000000"
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+REPO_NAME=$(basename "$REPO_ROOT" 2>/dev/null || echo "my-repo")
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "$z40" ]; then
+    continue
+  fi
+
+  BRANCH="\${local_ref#refs/heads/}"
+
+  if [ "$remote_sha" = "$z40" ]; then
+    UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null)
+    if [ -n "$UPSTREAM" ] && git rev-parse --verify "$UPSTREAM" >/dev/null 2>&1; then
+      COMMITS=$(git log --reverse --format="%H" "$UPSTREAM..$local_sha" 2>/dev/null)
+    else
+      COMMITS=$(git log --reverse --format="%H" --not --remotes="$1" "$local_sha" 2>/dev/null)
+    fi
+    if [ -z "$COMMITS" ]; then
+      COMMITS="$local_sha"
+    fi
+  else
+    COMMITS=$(git log --reverse --format="%H" "$remote_sha..$local_sha" 2>/dev/null)
+  fi
+
+  if [ -z "$COMMITS" ]; then
+    continue
+  fi
+
+  TOTAL=$(echo "$COMMITS" | wc -w | tr -d ' ')
+  echo ""
+  echo "[Todo App] Memproses $TOTAL commit pada branch '$BRANCH' untuk dicatat ke Todo App..."
+
+  for HASH in $COMMITS; do
+    AUTHOR_NAME=$(git log -1 --format="%an" "$HASH" 2>/dev/null)
+    COMMIT_MSG=$(git log -1 --format="%B" "$HASH" 2>/dev/null)
+    FIRST_LINE=$(git log -1 --format="%s" "$HASH" 2>/dev/null)
+    SHORT_HASH=$(echo "$HASH" | cut -c1-7)
+
+    echo -n "[Todo App] Mengirim commit $SHORT_HASH: \"$FIRST_LINE\"... "
+
+    if command -v jq >/dev/null 2>&1; then
+      PAYLOAD=$(jq -n \\
+        --arg msg "$COMMIT_MSG" \\
+        --arg branch "$BRANCH" \\
+        --arg hash "$HASH" \\
+        --arg repo "$REPO_NAME" \\
+        --arg name "$AUTHOR_NAME" \\
+        '{commit_message: $msg, branch: $branch, commit_hash: $hash, repo: $repo, author_name: $name}')
+    else
+      CLEAN_MSG=$(printf '%s' "$FIRST_LINE" | tr '"\\\\' '  ')
+      PAYLOAD="{\\"commit_message\\":\\"$CLEAN_MSG\\",\\"branch\\":\\"$BRANCH\\",\\"commit_hash\\":\\"$HASH\\",\\"repo\\":\\"$REPO_NAME\\",\\"author_name\\":\\"$AUTHOR_NAME\\"}"
+    fi
+
+    RESPONSE=$(curl -s -w "\\nHTTP_STATUS:%{http_code}" --max-time 5 -X POST "$TODO_SERVER_URL/api/webhooks/git" \\
+      -H "Content-Type: application/json" \\
+      -H "Authorization: Bearer $TODO_API_TOKEN" \\
+      -H "X-Git-Token: $TODO_API_TOKEN" \\
+      -d "$PAYLOAD" 2>&1)
+
+    HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
+    if [ "$HTTP_STATUS" = "200" ]; then
+      echo "Sukses!"
+    else
+      echo "Gagal ($HTTP_STATUS)"
+    fi
+  done
+  echo ""
+done
+
+exit 0
+`;
 
   const postCommitScript = `#!/bin/sh
 # .git/hooks/post-commit
@@ -234,37 +317,30 @@ if [ $CURL_EXIT -ne 0 ]; then
   echo "[Todo App] Gagal terhubung ke server ($TODO_SERVER_URL): curl error $CURL_EXIT"
 elif [ "$HTTP_STATUS" = "200" ]; then
   echo "[Todo App] Berhasil dicatat ke Todo App!"
-  if command -v jq >/dev/null 2>&1; then
-    TASK_INFO=$(echo "$BODY" | jq -r '.tasks[0] | "Task #\\(.id): \\(.title) [\\(.status)]"' 2>/dev/null)
-    if [ -n "$TASK_INFO" ] && [ "$TASK_INFO" != "null" ]; then
-      echo "[Todo App] $TASK_INFO"
-    else
-      echo "[Todo App] Response: $BODY"
-    fi
-  else
-    echo "[Todo App] Response: $BODY"
-  fi
 else
   echo "[Todo App] Gagal mencatat task (HTTP $HTTP_STATUS): $BODY"
 fi
 echo ""
 `;
 
+  const activeHookScript = hookEvent === 'pre-push' ? prePushScript : postCommitScript;
+
   const oneLinerSetup = `GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
 if [ -z "$GIT_DIR" ]; then
   echo "[Todo App] Error: Folder ini bukan repositori Git! Silakan jalankan perintah ini di dalam folder proyek Git Anda."
 else
   mkdir -p "$GIT_DIR/hooks"
-  cat << 'EOF' > "$GIT_DIR/hooks/post-commit"
-${postCommitScript}EOF
-  chmod +x "$GIT_DIR/hooks/post-commit"
-  echo "[Todo App] Sukses! Hook post-commit berhasil dipasang di $GIT_DIR/hooks/post-commit"
+  rm -f "$GIT_DIR/hooks/post-commit" "$GIT_DIR/hooks/pre-push"
+  cat << 'EOF' > "$GIT_DIR/hooks/${hookFileName}"
+${activeHookScript}EOF
+  chmod +x "$GIT_DIR/hooks/${hookFileName}"
+  echo "[Todo App] Sukses! Hook ${hookFileName} berhasil dipasang di $GIT_DIR/hooks/${hookFileName}"
 fi
 `;
 
-  const oneLinerPowerShell = `$g = git rev-parse --git-dir 2>$null; if (-not $g) { Write-Host "[Todo App] Error: Folder ini bukan repositori Git!" -ForegroundColor Red } else { $h = Join-Path $g "hooks"; if (-not (Test-Path $h)) { New-Item -ItemType Directory -Path $h -Force | Out-Null }; $f = Join-Path $h "post-commit"; $c = @'
-${postCommitScript}
-'@; [System.IO.File]::WriteAllText($f, $c.Replace("\`r\`n","\`n"), (New-Object System.Text.UTF8Encoding $false)); Write-Host "[Todo App] Sukses! Hook post-commit berhasil dipasang di $f" -ForegroundColor Green }`;
+  const oneLinerPowerShell = `$g = git rev-parse --git-dir 2>$null; if (-not $g) { Write-Host "[Todo App] Error: Folder ini bukan repositori Git!" -ForegroundColor Red } else { $h = Join-Path $g "hooks"; if (-not (Test-Path $h)) { New-Item -ItemType Directory -Path $h -Force | Out-Null }; Remove-Item -Path (Join-Path $h "post-commit") -Force -ErrorAction SilentlyContinue; Remove-Item -Path (Join-Path $h "pre-push") -Force -ErrorAction SilentlyContinue; $f = Join-Path $h "${hookFileName}"; $c = @'
+${activeHookScript}
+'@; [System.IO.File]::WriteAllText($f, $c.Replace("\`r\`n","\`n"), (New-Object System.Text.UTF8Encoding $false)); Write-Host "[Todo App] Sukses! Hook ${hookFileName} berhasil dipasang di $f" -ForegroundColor Green }`;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -483,11 +559,44 @@ ${postCommitScript}
                     </div>
                   </div>
 
-                  {/* Step 2: Pilih OS & Tutorial Instalasi */}
+                  {/* Step 2: Pilih Kapan Task Ingin Dicatat Otomatis */}
+                  <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-xl space-y-3">
+                    <div className="font-bold text-lg text-gray-800 dark:text-gray-200">
+                      Langkah 2: Pilih Kapan Task Ingin Dicatat Otomatis
+                    </div>
+                    <Radio.Group
+                      value={hookEvent}
+                      onChange={(e) => setHookEvent(e.target.value)}
+                      className="w-full space-y-2"
+                    >
+                      <div className={`p-3.5 rounded-xl border transition-all cursor-pointer ${hookEvent === 'pre-push' ? 'border-blue-500 bg-white dark:bg-slate-900 shadow-sm' : 'border-gray-200 dark:border-gray-800'}`}>
+                        <Radio value="pre-push">
+                          <span className="font-semibold text-base text-gray-800 dark:text-gray-100">
+                            Saat git push (<code className="text-blue-600 dark:text-blue-400 font-mono">pre-push</code>) — Sangat Direkomendasikan
+                          </span>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Task dicatat hanya ketika commit berhasil di-push ke remote repository. Sangat aman jika Anda membatalkan commit (<code className="font-mono">git reset</code>) atau mengedit pesan commit (<code className="font-mono">git commit --amend</code>). Otomatis memproses banyak (multiple) commit sekaligus saat push.
+                          </div>
+                        </Radio>
+                      </div>
+                      <div className={`p-3.5 rounded-xl border transition-all cursor-pointer ${hookEvent === 'post-commit' ? 'border-blue-500 bg-white dark:bg-slate-900 shadow-sm' : 'border-gray-200 dark:border-gray-800'}`}>
+                        <Radio value="post-commit">
+                          <span className="font-semibold text-base text-gray-800 dark:text-gray-100">
+                            Saat git commit (<code className="text-blue-600 dark:text-blue-400 font-mono">post-commit</code>)
+                          </span>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Task langsung dicatat di Todo App seketika setiap kali Anda menjalankan perintah commit di komputer lokal.
+                          </div>
+                        </Radio>
+                      </div>
+                    </Radio.Group>
+                  </div>
+
+                  {/* Step 3: Pilih OS & Tutorial Instalasi */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="font-bold text-lg text-gray-800 dark:text-gray-200">
-                        Langkah 2: Pilih Sistem Operasi & Metode Pemasangan
+                        Langkah 3: Pilih Sistem Operasi & Metode Pemasangan
                       </div>
                       <Segmented
                         size="large"
@@ -531,7 +640,7 @@ ${postCommitScript}
                             </Button>
                           </div>
                           <div className="text-sm text-gray-500">
-                            Perintah di atas secara otomatis mencari folder <code>.git</code>, membuat folder <code>hooks</code> jika belum ada, membuat file <code>post-commit</code>, dan menyetel izin eksekusi <code>chmod +x</code>.
+                            Perintah di atas secara otomatis mencari folder <code>.git</code>, membuat folder <code>hooks</code> jika belum ada, membuat file <code>{hookFileName}</code>, dan menyetel izin eksekusi <code>chmod +x</code>.
                           </div>
                         </div>
 
@@ -557,10 +666,10 @@ ${postCommitScript}
                                     </div>
                                   </div>
                                   <div>
-                                    <strong>3. Buat dan buka file <code>.git/hooks/post-commit</code> (tanpa ekstensi):</strong>
+                                    <strong>3. Buat dan buka file <code>.git/hooks/{hookFileName}</code> (tanpa ekstensi):</strong>
                                     <div className="bg-gray-950 text-gray-200 p-3 rounded-lg font-mono text-sm mt-1.5">
-                                      nano .git/hooks/post-commit
-                                      <span className="text-gray-400 block"># atau buka dengan VS Code: code .git/hooks/post-commit</span>
+                                      nano .git/hooks/{hookFileName}
+                                      <span className="text-gray-400 block"># atau buka dengan VS Code: code .git/hooks/{hookFileName}</span>
                                     </div>
                                   </div>
                                   <div>
@@ -568,7 +677,7 @@ ${postCommitScript}
                                       <strong>4. Paste isi script hook berikut ke dalam file:</strong>
                                       <Button
                                         icon={<CopyOutlined />}
-                                        onClick={() => copyToClipboard(postCommitScript, 'Isi script post-commit')}
+                                        onClick={() => copyToClipboard(activeHookScript, `Isi script ${hookFileName}`)}
                                       >
                                         Salin Isi Script
                                       </Button>
@@ -576,14 +685,14 @@ ${postCommitScript}
                                     <Input.TextArea
                                       rows={5}
                                       readOnly
-                                      value={postCommitScript}
+                                      value={activeHookScript}
                                       className="font-mono text-sm bg-gray-950 text-gray-200 p-3 rounded-lg"
                                     />
                                   </div>
                                   <div>
                                     <strong>5. Berikan izin eksekusi file agar Git dapat menjalankannya:</strong>
                                     <div className="bg-gray-950 text-gray-200 p-3 rounded-lg font-mono text-sm mt-1.5">
-                                      chmod +x .git/hooks/post-commit
+                                      chmod +x .git/hooks/{hookFileName}
                                     </div>
                                   </div>
                                 </div>
@@ -623,7 +732,7 @@ ${postCommitScript}
                             </Button>
                           </div>
                           <div className="text-sm text-gray-500">
-                            Perintah ini otomatis membuat folder <code>.git/hooks</code> dan file <code>post-commit</code> secara instan di Windows.
+                            Perintah ini otomatis membuat folder <code>.git/hooks</code> dan file <code>{hookFileName}</code> secara instan di Windows.
                           </div>
                         </div>
 
@@ -677,16 +786,16 @@ ${postCommitScript}
                                       Klik kanan di area kosong &rarr; pilih <strong>New &rarr; Text Document</strong>.
                                       <br />
                                       <span className="text-rose-600 font-semibold ml-5 inline-block">
-                                        PENTING: Beri nama file <code>post-commit</code> (hapus ekstensi <code>.txt</code> di belakangnya, jangan sampai menjadi <code>post-commit.txt</code>).
+                                        PENTING: Beri nama file <code>{hookFileName}</code> (hapus ekstensi <code>.txt</code> di belakangnya, jangan sampai menjadi <code>{hookFileName}.txt</code>).
                                       </span>
                                     </li>
-                                    <li>Buka file <code>post-commit</code> tersebut dengan <strong>Notepad</strong> atau <strong>VS Code</strong>.</li>
+                                    <li>Buka file <code>{hookFileName}</code> tersebut dengan <strong>Notepad</strong> atau <strong>VS Code</strong>.</li>
                                     <li>
                                       Paste isi script di bawah, lalu simpan (<strong>Ctrl + S</strong>):
                                       <div className="flex justify-end my-2">
                                         <Button
                                           icon={<CopyOutlined />}
-                                          onClick={() => copyToClipboard(postCommitScript, 'Isi script post-commit')}
+                                          onClick={() => copyToClipboard(activeHookScript, `Isi script ${hookFileName}`)}
                                         >
                                           Salin Isi Script Hook
                                         </Button>
@@ -694,7 +803,7 @@ ${postCommitScript}
                                       <Input.TextArea
                                         rows={5}
                                         readOnly
-                                        value={postCommitScript}
+                                        value={activeHookScript}
                                         className="font-mono text-sm bg-gray-950 text-gray-200 p-3 rounded-lg"
                                       />
                                     </li>
@@ -708,19 +817,26 @@ ${postCommitScript}
                     )}
                   </div>
 
-                  {/* Step 3: Coba Jalankan Commit */}
+                  {/* Step 4: Coba Jalankan Commit / Push */}
                   <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl text-base space-y-3">
                     <div className="font-bold text-lg text-emerald-800 dark:text-emerald-300">
-                      Langkah 3: Selesai! Coba Commit Seperti Biasa
+                      Langkah 4: Selesai! Coba {hookEvent === 'pre-push' ? 'Push Commit Anda' : 'Commit Seperti Biasa'}
                     </div>
                     <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                      Sekarang coba lakukan commit di terminal atau Git client Anda (VS Code, GitKraken, TortoiseGit, dll.):
+                      {hookEvent === 'pre-push' ? (
+                        <>
+                          Lakukan commit seperti biasa. Ketika Anda menjalankan <code className="font-mono bg-white dark:bg-gray-800 px-2 py-0.5 rounded text-emerald-600 font-bold">git push</code>, Git hook akan otomatis mengirimkan semua commit yang baru dipush ke Todo App:
+                        </>
+                      ) : (
+                        <>
+                          Sekarang coba lakukan commit di terminal atau Git client Anda:
+                        </>
+                      )}
                     </div>
-                    <div className="bg-gray-950 text-gray-200 p-4 rounded-xl font-mono text-sm space-y-1">
-                      <div className="text-gray-400">$ git commit -m "feat: perbaiki validasi form checkout"</div>
-                      <div className="text-emerald-400">[Todo App] Mengirim commit ke Todo Server...</div>
-                      <div className="text-emerald-400">[Todo App] Berhasil dicatat ke Todo App!</div>
-                      <div className="text-emerald-300 font-bold">[Todo App] Task #28: feat: perbaiki validasi form checkout [COMPLETED]</div>
+                    <div className="bg-gray-950 text-emerald-400 p-3.5 rounded-lg font-mono text-sm space-y-1">
+                      <div>git add .</div>
+                      <div>git commit -m &quot;feat: selesaikan modul laporan keuangan&quot;</div>
+                      {hookEvent === 'pre-push' && <div className="text-amber-400 font-bold">git push origin main</div>}
                     </div>
                     <div className="text-gray-600 dark:text-gray-300 text-sm">
                       Task otomatis muncul seketika di dashboard Todo App Anda tanpa perlu refresh browser.

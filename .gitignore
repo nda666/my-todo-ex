@@ -2,6 +2,7 @@ backend/.env
 node_modules/
 frontend/node_modules/
 backend/bin/
+backend/tmp/
 *.exe
 .history
 .env

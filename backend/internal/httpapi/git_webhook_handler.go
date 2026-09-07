@@ -189,6 +189,22 @@ func GitWebhookHandler(repos *repository.Repositories, authService *auth.Service
 			desc := strings.Join(descParts, "\n")
 
 			divisiKode := claims.KodeDivisi
+
+			// Cegah duplikasi jika commit hash ini sudah pernah dicatat sebelumnya
+			if item.hash != "" {
+				shortHash := item.hash
+				if len(shortHash) > 7 {
+					shortHash = shortHash[:7]
+				}
+				var existingMeta models.TaskMeta
+				if errCheck := repos.DB.WithContext(ctx).
+					Where("`key` = ? AND `value` LIKE ?", "git_commit", "%#"+shortHash).
+					First(&existingMeta).Error; errCheck == nil {
+					// Commit sudah tercatat sebelumnya, lewati
+					continue
+				}
+			}
+
 			tsk := models.Task{
 				Title:       title,
 				Description: desc,
