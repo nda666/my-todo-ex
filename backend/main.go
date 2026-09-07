@@ -5,6 +5,8 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -71,6 +73,20 @@ func main() {
 	http.Handle("/api/webhook-tokens", authMiddleware(authService, httpapi.WebhookTokenHandler(repos)))
 	http.Handle("/query", authMiddleware(authService, h))
 	http.Handle("/subscriptions", ws.NewHandler(&schema.Schema, authService))
+
+	// Sajikan static frontend build jika direktori dist tersedia (Single Container All-in-One)
+	distDir := "./dist"
+	if fi, err := os.Stat(distDir); err == nil && fi.IsDir() {
+		fs := http.FileServer(http.Dir(distDir))
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			path := filepath.Join(distDir, filepath.Clean(r.URL.Path))
+			if info, err := os.Stat(path); err == nil && !info.IsDir() {
+				fs.ServeHTTP(w, r)
+				return
+			}
+			http.ServeFile(w, r, filepath.Join(distDir, "index.html"))
+		})
+	}
 
 	corsOptions := cors.Options{
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
