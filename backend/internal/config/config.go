@@ -44,7 +44,7 @@ func Load() (*Config, error) {
 		DBUsername:         getEnv("DB_USERNAME", ""),
 		DBPassword:         getEnv("DB_PASSWORD", ""),
 		JWTSecret:          getEnv("JWT_SECRET", "dev-secret"),
-		ServerPort:         getEnv("PORT", getEnv("SERVER_PORT", "8080")),
+		ServerPort:         getEnv("PORT", getEnv("SERVER_PORT", "8000")),
 		CorsAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", ""),
 		NimAPIKey:          getEnv("NVIDIA_NIM_API_KEY", ""),
 		NimModel:           getEnv("NVIDIA_NIM_MODEL", ""),

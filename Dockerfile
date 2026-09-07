@@ -35,7 +35,7 @@ COPY --from=backend-builder /app/server /app/server
 # Copy Frontend static production bundle into dist/
 COPY --from=frontend-builder /app/frontend/dist /app/dist
 
-ENV PORT=8080
-EXPOSE 8080
+ENV PORT=8000
+EXPOSE 8000
 
 CMD ["/app/server"]

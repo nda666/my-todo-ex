@@ -19,10 +19,6 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("connect database: %w", err)
 	}
 
-	if err := AutoMigrateAll(db); err != nil {
-		return nil, fmt.Errorf("auto migrate: %w", err)
-	}
-
 	return db, nil
 }
 

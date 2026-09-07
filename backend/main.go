@@ -36,6 +36,16 @@ func main() {
 		log.Fatalf("database: %v", err)
 	}
 
+	// Jalankan migrasi di background agar server HTTP segera aktif dan lolos health check Koyeb
+	go func() {
+		log.Println("Memulai auto-migrate database di background...")
+		if err := database.AutoMigrateAll(db); err != nil {
+			log.Printf("Gagal auto-migrate database: %v", err)
+		} else {
+			log.Println("Auto-migrate database selesai!")
+		}
+	}()
+
 	doranClient := doranapi.NewClient(cfg.DoranAPIKey, cfg.DoranAuthBaseURL, cfg.DoranOfficeBaseURL)
 	dataCache := cache.New(380 * time.Minute)
 	repos := repository.NewRepositories(db, doranClient, dataCache)
@@ -74,8 +84,17 @@ func main() {
 	http.Handle("/query", authMiddleware(authService, h))
 	http.Handle("/subscriptions", ws.NewHandler(&schema.Schema, authService))
 
+	// Health check endpoint untuk Koyeb / cloud monitoring
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
 	// Sajikan static frontend build jika direktori dist tersedia (Single Container All-in-One)
-	distDir := "./frontend/dist"
+	distDir := "./dist"
+	if fi, err := os.Stat(distDir); err != nil || !fi.IsDir() {
+		distDir = "./frontend/dist"
+	}
 	if fi, err := os.Stat(distDir); err == nil && fi.IsDir() {
 		fs := http.FileServer(http.Dir(distDir))
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

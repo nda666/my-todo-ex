@@ -21,7 +21,7 @@ RUN apk add --no-cache ca-certificates tzdata
 
 COPY --from=builder /app/server /app/server
 
-ENV PORT=8080
-EXPOSE 8080
+ENV PORT=8000
+EXPOSE 8000
 
 CMD ["/app/server"]
